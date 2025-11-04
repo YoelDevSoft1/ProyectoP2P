@@ -479,25 +479,56 @@ class CompetitivePricingService:
                     "advantage": "Atractivo para compradores"
                 })
 
+            # Generate recommendations, risks, and action plan
+            recommendations = []
+            risks = []
+            action_plan = []
+
+            # Recommendations based on competitiveness
+            if pricing_data["competitiveness"]["overall_score"] >= 80:
+                recommendations.append("Precios muy competitivos - Maximizar volumen")
+                recommendations.append("Mantener monitoreo activo del mercado")
+            elif pricing_data["competitiveness"]["overall_score"] >= 60:
+                recommendations.append("Precios competitivos - Buen balance profit/volumen")
+            else:
+                recommendations.append("Mejorar competitividad para aumentar volumen")
+                recommendations.append("Considerar reducir margen de ganancia")
+
+            if pricing_data["profit_analysis"]["net_profit_pct"] >= 1.0:
+                recommendations.append(f"Margen saludable de {pricing_data['profit_analysis']['net_profit_pct']:.2f}%")
+
+            # Risks
+            if abs(market_data["market_spread"]["percentage"]) > 1.0:
+                risks.append(f"Spread alto del mercado ({abs(market_data['market_spread']['percentage']):.2f}%) indica volatilidad")
+
+            if not pricing_data["competitiveness"]["buy_competitive"]:
+                risks.append("Precio de compra no competitivo - Pocos vendedores elegirán tu oferta")
+
+            if not pricing_data["competitiveness"]["sell_competitive"]:
+                risks.append("Precio de venta no competitivo - Pocos compradores elegirán tu oferta")
+
+            if pricing_data["profit_analysis"]["net_profit_pct"] < 0.5:
+                risks.append("Margen de ganancia muy ajustado - Vulnerable a fluctuaciones")
+
+            # Action plan
+            action_plan.append("Monitorear precios del mercado cada 1-5 minutos")
+            action_plan.append(f"Publicar orden de COMPRA a {pricing_data['our_prices']['buy_price']:.2f} {fiat}")
+            action_plan.append(f"Publicar orden de VENTA a {pricing_data['our_prices']['sell_price']:.2f} {fiat}")
+
+            if pricing_data["competitiveness"]["overall_score"] < 60:
+                action_plan.append("Ajustar precios para mejorar competitividad")
+
+            action_plan.append("Revisar y ajustar estrategia cada 30 minutos")
+
             return {
                 "success": True,
                 "asset": asset,
                 "fiat": fiat,
-                "market_analysis": {
-                    "trm_de_mercado": market_data["market_trm"]["recommended"],
-                    "buy_side_vwap": market_data["buy_side"]["vwap"],
-                    "sell_side_vwap": market_data["sell_side"]["vwap"],
-                    "market_spread_pct": market_data["market_spread"]["percentage"],
-                },
-                "our_strategy": {
-                    "buy_price": pricing_data["our_prices"]["buy_price"],
-                    "sell_price": pricing_data["our_prices"]["sell_price"],
-                    "our_spread_pct": pricing_data["our_prices"]["spread_percentage"],
-                    "net_profit_pct": pricing_data["profit_analysis"]["net_profit_pct"],
-                },
-                "competitiveness": pricing_data["competitiveness"],
-                "opportunities": opportunities,
-                "recommendation": pricing_data["recommendation"],
+                "market_trm": market_data,  # Complete market TRM data
+                "competitive_prices": pricing_data,  # Complete competitive prices data
+                "recommendations": recommendations,
+                "risks": risks,
+                "action_plan": action_plan,
                 "timestamp": datetime.utcnow().isoformat(),
             }
 
