@@ -121,26 +121,33 @@ class CompetitivePricingService:
                 "asset": asset,
                 "fiat": fiat,
                 "market_trm": {
+                    "simple_average": market_trm_mean,
                     "mean": market_trm_mean,
                     "median": market_trm_median,
                     "vwap": market_trm_vwap,
                     "recommended": market_trm_vwap,  # VWAP es el más preciso
+                    "p25": statistics.quantiles(buy_prices + sell_prices, n=4)[0] if len(buy_prices + sell_prices) >= 4 else (market_trm_median if market_trm_median > 0 else 0),
+                    "p75": statistics.quantiles(buy_prices + sell_prices, n=4)[2] if len(buy_prices + sell_prices) >= 4 else (market_trm_median if market_trm_median > 0 else 0),
                 },
                 "buy_side": {
+                    "average_price": buy_mean,
                     "mean": buy_mean,
                     "median": buy_median,
                     "vwap": buy_vwap,
                     "best": max(buy_prices) if buy_prices else 0,  # Mejor precio para vender a ellos
                     "worst": min(buy_prices) if buy_prices else 0,
                     "total_volume": sum(buy_volumes),
+                    "num_orders": len(buy_prices),
                 },
                 "sell_side": {
+                    "average_price": sell_mean,
                     "mean": sell_mean,
                     "median": sell_median,
                     "vwap": sell_vwap,
                     "best": min(sell_prices) if sell_prices else 0,  # Mejor precio para comprar de ellos
                     "worst": max(sell_prices) if sell_prices else 0,
                     "total_volume": sum(sell_volumes),
+                    "num_orders": len(sell_prices),
                 },
                 "market_spread": {
                     "absolute": market_spread,
@@ -369,12 +376,17 @@ class CompetitivePricingService:
         sell_advantage_pct = ((market_sell - our_sell) / market_sell * 100) if market_sell > 0 else 0
 
         # Score general de competitividad (0-100)
-        competitiveness_score = (
-            (max(0, buy_advantage_pct) * 50) +  # 50% peso en compra
-            (max(0, sell_advantage_pct) * 50)    # 50% peso en venta
-        ) * 10  # Escalar a 0-100
-
-        competitiveness_score = min(100, competitiveness_score)
+        # Basado en qué tan competitivos somos:
+        # - Si pagamos 0.5% más que el mercado = +25 puntos
+        # - Si cobramos 0.5% menos que el mercado = +25 puntos
+        # - Máximo 100 puntos
+        
+        # Normalizar ventajas (0.5% = 50 puntos, 1% = 100 puntos, etc.)
+        buy_score = max(0, min(50, buy_advantage_pct * 100))  # 0.5% = 50 puntos máx
+        sell_score = max(0, min(50, sell_advantage_pct * 100))  # 0.5% = 50 puntos máx
+        
+        competitiveness_score = buy_score + sell_score
+        competitiveness_score = min(100, max(0, competitiveness_score))
 
         rating = (
             "EXCELENTE" if competitiveness_score >= 80 else
@@ -520,12 +532,34 @@ class CompetitivePricingService:
 
             action_plan.append("Revisar y ajustar estrategia cada 30 minutos")
 
+            # Mapear datos al formato esperado por el frontend
             return {
                 "success": True,
                 "asset": asset,
                 "fiat": fiat,
-                "market_trm": market_data,  # Complete market TRM data
-                "competitive_prices": pricing_data,  # Complete competitive prices data
+                "market_trm": {
+                    "fiat": market_data["fiat"],
+                    "asset": market_data["asset"],
+                    "buy_side": market_data["buy_side"],
+                    "sell_side": market_data["sell_side"],
+                    "market_trm": market_data["market_trm"],
+                    "spread": market_data["market_spread"],  # Mapear market_spread a spread
+                    "timestamp": market_data["timestamp"]
+                },
+                "competitive_prices": {
+                    "our_prices": pricing_data["our_prices"],
+                    "market_prices": {  # Mapear market_reference a market_prices
+                        "buy_vwap": pricing_data["market_reference"]["buy_vwap"],
+                        "sell_vwap": pricing_data["market_reference"]["sell_vwap"]
+                    },
+                    "competitiveness": pricing_data["competitiveness"],
+                    "profit_analysis": {
+                        "gross_margin": pricing_data["profit_analysis"]["gross_profit_pct"],
+                        "net_margin_after_fees": pricing_data["profit_analysis"]["net_profit_pct"],
+                        "binance_fees_total": pricing_data["profit_analysis"]["total_fees"],
+                        "is_profitable": pricing_data["profit_analysis"]["is_profitable"]
+                    }
+                },
                 "recommendations": recommendations,
                 "risks": risks,
                 "action_plan": action_plan,

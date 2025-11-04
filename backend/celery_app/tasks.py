@@ -111,7 +111,10 @@ def analyze_spread_opportunities():
     """
     db = get_db()
     try:
+        from app.services.notification_service import NotificationService
+
         binance_service = BinanceService()
+        notif_service = NotificationService()
 
         # Analizar para cada moneda
         for fiat in ["COP", "VES"]:
@@ -131,6 +134,18 @@ def analyze_spread_opportunities():
                     percentage=spread
                 )
                 db.add(alert)
+
+                # Enviar notificación por Telegram
+                opportunity_data = {
+                    'asset': 'USDT',
+                    'fiat': fiat,
+                    'spread': spread,
+                    'buy_price': depth['best_buy']['price'],
+                    'sell_price': depth['best_sell']['price'],
+                    'potential_profit_percent': spread
+                }
+                asyncio.run(notif_service.send_p2p_opportunity_alert(opportunity_data))
+                logger.info("Spread opportunity notification sent", fiat=fiat, spread=spread)
 
         db.commit()
         logger.info("Spread analysis completed")
