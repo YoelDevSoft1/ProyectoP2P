@@ -33,7 +33,7 @@ class TriangleArbitrageService:
 
     async def analyze_triangle_opportunity(
         self,
-        initial_amount_cop: float = 1000000.0  # 1M COP inicial
+        initial_amount_cop: float = 200000.0  # 200k COP inicial
     ) -> Dict:
         """
         Analiza oportunidad de arbitraje triangular completo
@@ -57,21 +57,32 @@ class TriangleArbitrageService:
 
             final_ves_amount = usdt_amount * usdt_sell_price_ves
 
-            # Paso 3: Calcular costo de retorno VES -> COP (si existe ruta)
-            # Aquí podríamos buscar P2P VES/COP directo o usar intermediario
-            ves_to_cop_rate = await self._get_ves_to_cop_rate()
-
-            if ves_to_cop_rate:
-                final_cop_amount = final_ves_amount * ves_to_cop_rate
-            else:
-                # Si no hay ruta directa, calculamos equivalente teórico
-                final_cop_amount = None
-
-            # Cálculo de profit
-            profit_ves = final_ves_amount
-
-            # ROI en términos de VES obtenido por COP invertido
-            roi_percentage = ((final_ves_amount * usdt_sell_price_ves) - initial_amount_cop) / initial_amount_cop * 100 if final_cop_amount else 0
+            # Paso 3: Cálculo de profit REAL
+            # Para calcular ROI correctamente, necesitamos convertir VES de vuelta a COP
+            # Usando la ruta inversa: VES -> USDT -> COP
+            ves_to_usdt_rate = None
+            usdt_to_cop_rate = None
+            final_cop_amount = None
+            profit_cop = None
+            roi_percentage = 0
+            
+            if final_ves_amount > 0:
+                # Convertir VES a COP usando la ruta inversa
+                # VES -> USDT (compramos USDT con VES)
+                ves_to_usdt_rate = await self.p2p_service.get_best_price("USDT", "VES", "BUY")
+                if ves_to_usdt_rate and ves_to_usdt_rate > 0:
+                    # Con Z VES, compramos: Z / ves_to_usdt_rate USDT
+                    usdt_from_ves = final_ves_amount / ves_to_usdt_rate
+                    
+                    # USDT -> COP (vendemos USDT por COP)
+                    usdt_to_cop_rate = await self.p2p_service.get_best_price("USDT", "COP", "SELL")
+                    if usdt_to_cop_rate and usdt_to_cop_rate > 0:
+                        # Con X USDT, obtenemos: X * usdt_to_cop_rate COP
+                        final_cop_amount = usdt_from_ves * usdt_to_cop_rate
+                        
+                        # Ahora sí podemos calcular ROI real
+                        profit_cop = final_cop_amount - initial_amount_cop
+                        roi_percentage = (profit_cop / initial_amount_cop * 100) if initial_amount_cop > 0 else 0
 
             opportunity = {
                 "success": True,
@@ -98,16 +109,29 @@ class TriangleArbitrageService:
                     "cop_equivalent": final_cop_amount,
                 },
                 "profit": {
-                    "ves_gained": profit_ves,
-                    "roi_percentage": roi_percentage,
+                    "ves_gained": final_ves_amount,
+                    "cop_equivalent": final_cop_amount,
+                    "profit_cop": profit_cop if final_cop_amount else None,
+                    "roi_percentage": round(roi_percentage, 2),
                 },
                 "is_profitable": roi_percentage > settings.ARBITRAGE_MIN_PROFIT,
                 "timestamp": datetime.utcnow().isoformat(),
                 "execution_steps": [
-                    f"1. Comprar {usdt_amount:.2f} USDT con {initial_amount_cop:,.0f} COP en Binance P2P",
-                    f"2. Vender {usdt_amount:.2f} USDT por {final_ves_amount:,.2f} VES en Binance P2P",
-                    f"3. Profit estimado: {roi_percentage:.2f}% ROI"
-                ]
+                    f"1. Comprar {usdt_amount:.2f} USDT con {initial_amount_cop:,.0f} COP en Binance P2P (precio: {usdt_buy_price_cop:,.2f} COP/USDT)",
+                    f"2. Vender {usdt_amount:.2f} USDT por {final_ves_amount:,.2f} VES en Binance P2P (precio: {usdt_sell_price_ves:,.2f} VES/USDT)",
+                    f"3. Convertir {final_ves_amount:,.2f} VES de vuelta a COP: {final_cop_amount:,.2f} COP" if final_cop_amount else "3. No se pudo convertir VES a COP",
+                    f"4. Profit: {profit_cop:,.2f} COP ({roi_percentage:.2f}% ROI)" if profit_cop else "4. No se pudo calcular profit"
+                ],
+                "debug_info": {
+                    "usdt_buy_price_cop": usdt_buy_price_cop,
+                    "usdt_sell_price_ves": usdt_sell_price_ves,
+                    "usdt_amount": usdt_amount,
+                    "final_ves_amount": final_ves_amount,
+                    "ves_to_usdt_rate": ves_to_usdt_rate if final_ves_amount > 0 else None,
+                    "usdt_to_cop_rate": usdt_to_cop_rate if final_ves_amount > 0 else None,
+                    "final_cop_amount": final_cop_amount,
+                    "profit_cop": profit_cop
+                }
             }
 
             return opportunity
@@ -183,7 +207,7 @@ class TriangleArbitrageService:
         fiat_from: str,
         asset: str,
         fiat_to: str,
-        initial_amount: float = 1000000.0
+        initial_amount: float = 200000.0
     ) -> Optional[Dict]:
         """Analiza una ruta específica de arbitraje"""
 
@@ -206,10 +230,11 @@ class TriangleArbitrageService:
             # Necesitamos convertir final_amount (en fiat_to) a fiat_from para calcular profit
             cross_rate = await self._get_cross_rate(fiat_to, fiat_from)
 
-            if cross_rate:
+            if cross_rate and cross_rate > 0:
                 final_amount_in_initial_currency = final_amount * cross_rate
                 profit = final_amount_in_initial_currency - initial_amount
-                roi = (profit / initial_amount) * 100
+                roi = (profit / initial_amount) * 100 if initial_amount > 0 else 0
+                
             else:
                 # Sin cross rate, solo podemos reportar valores absolutos
                 profit = 0

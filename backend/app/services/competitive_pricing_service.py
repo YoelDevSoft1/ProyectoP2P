@@ -389,11 +389,11 @@ class CompetitivePricingService:
         competitiveness_score = min(100, max(0, competitiveness_score))
 
         rating = (
-            "EXCELENTE" if competitiveness_score >= 80 else
-            "MUY BUENO" if competitiveness_score >= 60 else
-            "BUENO" if competitiveness_score >= 40 else
-            "MODERADO" if competitiveness_score >= 20 else
-            "POBRE"
+            "MUY_COMPETITIVO" if competitiveness_score >= 80 else
+            "COMPETITIVO" if competitiveness_score >= 60 else
+            "MODERADO" if competitiveness_score >= 40 else
+            "MEJORABLE" if competitiveness_score >= 20 else
+            "NO_COMPETITIVO"
         )
 
         return {

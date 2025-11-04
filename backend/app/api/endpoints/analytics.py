@@ -223,7 +223,7 @@ async def test_notification():
 
 @router.get("/triangle-arbitrage/analyze")
 async def analyze_triangle_arbitrage(
-    initial_amount: float = Query(1000000, description="Cantidad inicial en COP"),
+    initial_amount: float = Query(200000, description="Cantidad inicial en COP"),
 ):
     """
     Analiza oportunidad de arbitraje triangular COP -> USDT -> VES
