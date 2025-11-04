@@ -1,0 +1,85 @@
+services:
+  - type: web
+    name: p2p-backend
+    env: docker
+    plan: starter
+    region: oregon
+    rootDir: backend
+    dockerfilePath: ../docker/Dockerfile.backend
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: RABBITMQ_URL
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: BACKEND_CORS_ORIGINS
+        sync: false
+      - key: BINANCE_API_KEY
+        sync: false
+      - key: BINANCE_API_SECRET
+        sync: false
+
+  - type: worker
+    name: p2p-celery-worker
+    env: docker
+    plan: starter
+    region: oregon
+    rootDir: backend
+    dockerfilePath: ../docker/Dockerfile.backend
+    startCommand: celery -A celery_app.worker worker --loglevel=info
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: RABBITMQ_URL
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: BINANCE_API_KEY
+        sync: false
+      - key: BINANCE_API_SECRET
+        sync: false
+
+  - type: worker
+    name: p2p-celery-beat
+    env: docker
+    plan: starter
+    region: oregon
+    rootDir: backend
+    dockerfilePath: ../docker/Dockerfile.backend
+    startCommand: celery -A celery_app.worker beat --loglevel=info
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: RABBITMQ_URL
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: BINANCE_API_KEY
+        sync: false
+      - key: BINANCE_API_SECRET
+        sync: false
+
+# Nota: Render no hospeda Redis/RabbitMQ/Postgres gestionados en este archivo; 
+# usa proveedores administrados (Neon/Timescale, Upstash, CloudAMQP) y asigna
+# sus URLs a las variables sincronizadas (sync: false).
+
