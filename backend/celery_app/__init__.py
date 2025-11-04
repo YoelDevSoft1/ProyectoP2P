@@ -1,0 +1,3 @@
+"""
+Inicialización de Celery app.
+"""

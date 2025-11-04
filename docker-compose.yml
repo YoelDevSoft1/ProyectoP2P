@@ -1,0 +1,167 @@
+version: '3.8'
+
+services:
+  # PostgreSQL con TimescaleDB para series temporales
+  postgres:
+    image: timescale/timescaledb:latest-pg15
+    container_name: p2p_postgres
+    environment:
+      POSTGRES_USER: p2p_user
+      POSTGRES_PASSWORD: p2p_password_change_me
+      POSTGRES_DB: p2p_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - p2p_network
+    restart: unless-stopped
+
+  # Redis para cache y datos en tiempo real
+  redis:
+    image: redis:7-alpine
+    container_name: p2p_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - p2p_network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  # RabbitMQ para cola de mensajes
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: p2p_rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: p2p_user
+      RABBITMQ_DEFAULT_PASS: p2p_password_change_me
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - p2p_network
+    restart: unless-stopped
+
+  # Backend FastAPI
+  backend:
+    build:
+      context: ./backend
+      dockerfile: ../docker/Dockerfile.backend
+    container_name: p2p_backend
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://p2p_user:p2p_password_change_me@postgres:5432/p2p_db
+      - REDIS_URL=redis://redis:6379/0
+      - RABBITMQ_URL=amqp://p2p_user:p2p_password_change_me@rabbitmq:5672/
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - backend_logs:/app/logs
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+    networks:
+      - p2p_network
+    restart: unless-stopped
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Celery Worker para tareas asíncronas
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: ../docker/Dockerfile.backend
+    container_name: p2p_celery_worker
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://p2p_user:p2p_password_change_me@postgres:5432/p2p_db
+      - REDIS_URL=redis://redis:6379/0
+      - RABBITMQ_URL=amqp://p2p_user:p2p_password_change_me@rabbitmq:5672/
+    volumes:
+      - ./backend:/app
+      - celery_logs:/app/logs
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+    networks:
+      - p2p_network
+    restart: unless-stopped
+    command: celery -A celery_app.worker worker --loglevel=info
+
+  # Celery Beat para tareas programadas
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: ../docker/Dockerfile.backend
+    container_name: p2p_celery_beat
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://p2p_user:p2p_password_change_me@postgres:5432/p2p_db
+      - REDIS_URL=redis://redis:6379/0
+      - RABBITMQ_URL=amqp://p2p_user:p2p_password_change_me@rabbitmq:5672/
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+    networks:
+      - p2p_network
+    restart: unless-stopped
+    command: celery -A celery_app.worker beat --loglevel=info
+
+  # Frontend Next.js
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/Dockerfile.frontend
+    container_name: p2p_frontend
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+    networks:
+      - p2p_network
+    restart: unless-stopped
+
+  # Grafana para monitoreo (opcional)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: p2p_grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin_change_me
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - p2p_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  backend_logs:
+  celery_logs:
+  grafana_data:
+
+networks:
+  p2p_network:
+    driver: bridge

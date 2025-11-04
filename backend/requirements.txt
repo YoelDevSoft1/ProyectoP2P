@@ -1,0 +1,71 @@
+# FastAPI y servidor
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+
+# Base de datos
+sqlalchemy==2.0.25
+asyncpg==0.29.0
+psycopg2-binary==2.9.9
+alembic==1.13.1
+
+# Redis
+redis==5.0.1
+hiredis==2.3.2
+
+# Celery para tareas asíncronas
+celery==5.3.6
+kombu==5.3.5
+
+# Binance
+binance-connector==3.12.0
+python-binance==1.0.19
+
+# HTTP y WebSockets
+httpx==0.26.0
+websockets==12.0
+aiohttp==3.9.1
+
+# Validación y serialización
+pydantic==2.5.3
+pydantic-settings==2.1.0
+email-validator==2.1.0
+
+# Seguridad
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-dotenv==1.0.0
+
+# Data processing y ML
+pandas==2.1.4
+numpy==1.26.3
+scikit-learn==1.4.0
+# ta-lib==0.4.28  # Opcional - requiere compilación C, comentado para facilitar instalación
+scipy==1.11.4
+
+# Análisis técnico (alternativa a ta-lib)
+ta==0.11.0
+
+# Utilidades
+python-dateutil==2.8.2
+pytz==2023.3
+structlog==24.1.0
+
+# Monitoreo y logging
+prometheus-client==0.19.0
+
+# Testing
+pytest==7.4.4
+pytest-asyncio==0.23.3
+pytest-cov==4.1.0
+
+# Notificaciones
+python-telegram-bot==20.8
+
+# Rate limiting
+slowapi==0.1.9
+
+# Formateo y linting
+black==23.12.1
+flake8==7.0.0
+mypy==1.8.0

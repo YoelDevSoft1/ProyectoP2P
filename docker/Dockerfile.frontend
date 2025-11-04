@@ -1,0 +1,22 @@
+FROM node:18-alpine
+
+# Instalar dependencias necesarias
+RUN apk add --no-cache libc6-compat
+
+# Establecer directorio de trabajo
+WORKDIR /app
+
+# Copiar archivos de dependencias
+COPY package*.json ./
+
+# Instalar dependencias
+RUN npm install
+
+# Copiar el resto de la aplicación
+COPY . .
+
+# Exponer puerto
+EXPOSE 3000
+
+# Comando de desarrollo (en producción usar: npm run build && npm start)
+CMD ["npm", "run", "dev"]

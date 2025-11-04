@@ -1,0 +1,33 @@
+# Archivos que Cursor debe ignorar
+# PERO permitimos acceso a .env para configuración
+
+# Mantener estos archivos ignorados
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+ENV/
+env/
+
+# Logs
+*.log
+logs/
+
+# Bases de datos
+*.db
+*.sqlite
+*.sqlite3
+pgdata/
+
+# NO ignorar .env para poder configurarlo
+# .env
+
