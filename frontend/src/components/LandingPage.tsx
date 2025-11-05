@@ -76,7 +76,7 @@ export default function LandingPage({
     initialData: initialPrices ?? undefined,
     retry: 1,
     retryDelay: 2000,
-    refetchOnError: false,
+    refetchOnWindowFocus: false,
     onError: (error) => {
       console.error('Error fetching prices:', error)
     },
@@ -89,7 +89,7 @@ export default function LandingPage({
     initialData: initialTrm ?? undefined,
     retry: 1,
     retryDelay: 2000,
-    refetchOnError: false,
+    refetchOnWindowFocus: false,
     onError: (error) => {
       console.error('Error fetching TRM:', error)
     },
@@ -102,7 +102,7 @@ export default function LandingPage({
     initialData: initialStats ?? undefined,
     retry: 1,
     retryDelay: 2000,
-    refetchOnError: false,
+    refetchOnWindowFocus: false,
     onError: (error) => {
       console.error('Error fetching stats:', error)
     },
