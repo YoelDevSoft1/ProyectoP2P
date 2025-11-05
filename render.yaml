@@ -2,7 +2,7 @@ services:
   - type: web
     name: p2p-backend
     env: docker
-    plan: starter
+    plan: free
     region: oregon
     rootDir: backend
     dockerfilePath: ../docker/Dockerfile.backend
@@ -30,7 +30,7 @@ services:
   - type: worker
     name: p2p-celery-worker
     env: docker
-    plan: starter
+    plan: free
     region: oregon
     rootDir: backend
     dockerfilePath: ../docker/Dockerfile.backend
@@ -56,7 +56,7 @@ services:
   - type: worker
     name: p2p-celery-beat
     env: docker
-    plan: starter
+    plan: free
     region: oregon
     rootDir: backend
     dockerfilePath: ../docker/Dockerfile.backend
