@@ -29,13 +29,15 @@ services:
 
   - type: worker
     name: p2p-celery-worker
-    env: docker
+    env: python
     plan: free
     region: oregon
     rootDir: backend
-    dockerfilePath: ../docker/Dockerfile.backend
-    startCommand: celery -A celery_app.worker worker --loglevel=info
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "celery -A celery_app.worker worker --loglevel=info --concurrency=1"
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
       - key: ENVIRONMENT
         value: production
       - key: DEBUG
@@ -55,13 +57,15 @@ services:
 
   - type: worker
     name: p2p-celery-beat
-    env: docker
+    env: python
     plan: free
     region: oregon
     rootDir: backend
-    dockerfilePath: ../docker/Dockerfile.backend
-    startCommand: celery -A celery_app.worker beat --loglevel=info
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "celery -A celery_app.worker beat --loglevel=info"
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
       - key: ENVIRONMENT
         value: production
       - key: DEBUG
