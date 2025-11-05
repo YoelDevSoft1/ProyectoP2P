@@ -82,7 +82,7 @@ export default function LandingPage({
     },
   })
 
-  const { data: safeTrm, error: trmError } = useQuery({
+  const { data: trmData, error: trmError } = useQuery({
     queryKey: ['trm'],
     queryFn: () => api.getTRM(),
     refetchInterval: 300000,
@@ -127,7 +127,7 @@ export default function LandingPage({
 
   // Usar datos iniciales si hay error en la query
   const safePrices = pricesError ? initialPrices : prices
-  const safeTrm = trmError ? initialTrm : safeTrm
+  const safeTrm = trmError ? initialTrm : trmData
   const safeStats = statsError ? initialStats : stats
 
   const highlightedCopPrice = safePrices?.COP?.sell_price ?? null
