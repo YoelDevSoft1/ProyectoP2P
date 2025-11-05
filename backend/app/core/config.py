@@ -2,7 +2,7 @@
 Configuración central de la aplicación.
 Lee variables de entorno y proporciona configuración tipada.
 """
-from typing import List, Literal
+from typing import Dict, List, Literal
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import validator, Field
 
@@ -51,6 +51,13 @@ class Settings(BaseSettings):
     TRM_API_URL: str = "https://www.datos.gov.co/resource/32sa-8pi3.json"
     TRM_UPDATE_INTERVAL: int = 300
 
+    # FX y tasas de cambio
+    FX_CACHE_TTL_SECONDS: int = 120
+    FX_FALLBACK_RATES: Dict[str, float] = Field(default_factory=lambda: {
+        "COP": 4000.0,
+        "VES": 36.5,
+    })
+
     # Tasa Venezuela
     VES_RATE_SOURCE: str = "bcv"
     VES_UPDATE_INTERVAL: int = 300
@@ -95,6 +102,8 @@ class Settings(BaseSettings):
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = 60
     RATE_LIMIT_BINANCE_API: int = 1200
+    P2P_PRICE_CACHE_SECONDS: int = 15
+    P2P_MIN_SURPLUS_USDT: float = 50.0
 
     # Entorno
     DEBUG: bool = True
