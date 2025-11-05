@@ -38,6 +38,8 @@ async function fetchJson<T>(endpoint: string): Promise<T | null> {
     const res = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
+        // Header para evitar la página de interceptor de ngrok
+        'ngrok-skip-browser-warning': 'true',
       },
       // No cache to keep data fresh for landing conversions
       cache: 'no-store',

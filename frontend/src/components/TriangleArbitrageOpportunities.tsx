@@ -41,7 +41,12 @@ export function TriangleArbitrageOpportunities() {
     try {
       // Fetch all opportunities
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/analytics/top-opportunities?limit=10`
+        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/analytics/top-opportunities?limit=10`,
+        {
+          headers: {
+            'ngrok-skip-browser-warning': 'true',
+          },
+        }
       )
       const data = await response.json()
 
@@ -51,7 +56,12 @@ export function TriangleArbitrageOpportunities() {
 
       // Fetch optimal strategy
       const strategyResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/analytics/triangle-arbitrage/optimal-strategy`
+        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/analytics/triangle-arbitrage/optimal-strategy`,
+        {
+          headers: {
+            'ngrok-skip-browser-warning': 'true',
+          },
+        }
       )
       const strategyData = await strategyResponse.json()
 

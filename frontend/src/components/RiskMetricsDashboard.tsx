@@ -32,7 +32,10 @@ export function RiskMetricsDashboard({ returns = [], equityCurve = [], trades = 
         `${process.env.NEXT_PUBLIC_API_URL}/api/v1/analytics/risk/calculate-var`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true',
+          },
           body: JSON.stringify({ returns, confidence_level: 0.95, time_horizon_days: 1 }),
         }
       )
@@ -43,7 +46,10 @@ export function RiskMetricsDashboard({ returns = [], equityCurve = [], trades = 
         `${process.env.NEXT_PUBLIC_API_URL}/api/v1/analytics/risk/calculate-sharpe`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true',
+          },
           body: JSON.stringify({ returns }),
         }
       )
@@ -54,7 +60,10 @@ export function RiskMetricsDashboard({ returns = [], equityCurve = [], trades = 
         `${process.env.NEXT_PUBLIC_API_URL}/api/v1/analytics/risk/calculate-sortino`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true',
+          },
           body: JSON.stringify({ returns }),
         }
       )
@@ -65,7 +74,10 @@ export function RiskMetricsDashboard({ returns = [], equityCurve = [], trades = 
         `${process.env.NEXT_PUBLIC_API_URL}/api/v1/analytics/risk/calculate-drawdown`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true',
+          },
           body: JSON.stringify({ equity_curve: equityCurve }),
         }
       )
@@ -76,7 +88,10 @@ export function RiskMetricsDashboard({ returns = [], equityCurve = [], trades = 
         `${process.env.NEXT_PUBLIC_API_URL}/api/v1/analytics/risk/trading-metrics`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true',
+          },
           body: JSON.stringify({ trades }),
         }
       )

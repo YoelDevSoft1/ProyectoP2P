@@ -12,6 +12,8 @@ const axiosInstance = axios.create({
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
+    // Header para evitar la página de interceptor de ngrok
+    'ngrok-skip-browser-warning': 'true',
   },
 })
 

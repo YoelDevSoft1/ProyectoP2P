@@ -48,7 +48,12 @@ export function OrderbookDepth({ asset = 'USDT', fiat = 'COP' }: OrderbookDepthP
   const fetchDepthData = async () => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/analytics/liquidity/market-depth?asset=${asset}&fiat=${fiat}&depth_levels=10`
+        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/analytics/liquidity/market-depth?asset=${asset}&fiat=${fiat}&depth_levels=10`,
+        {
+          headers: {
+            'ngrok-skip-browser-warning': 'true',
+          },
+        }
       )
       const data = await response.json()
 

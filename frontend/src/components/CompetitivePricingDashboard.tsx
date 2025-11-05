@@ -84,13 +84,23 @@ export function CompetitivePricingDashboard() {
 
       // Fetch COP strategy
       const copResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/analytics/pricing/strategy-summary?fiat=COP`
+        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/analytics/pricing/strategy-summary?fiat=COP`,
+        {
+          headers: {
+            'ngrok-skip-browser-warning': 'true',
+          },
+        }
       )
       const copData = await copResponse.json()
 
       // Fetch VES strategy
       const vesResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/analytics/pricing/strategy-summary?fiat=VES`
+        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/analytics/pricing/strategy-summary?fiat=VES`,
+        {
+          headers: {
+            'ngrok-skip-browser-warning': 'true',
+          },
+        }
       )
       const vesData = await vesResponse.json()
 
