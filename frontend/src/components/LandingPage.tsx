@@ -77,10 +77,12 @@ export default function LandingPage({
     retry: 1,
     retryDelay: 2000,
     refetchOnWindowFocus: false,
-    onError: (error) => {
-      console.error('Error fetching prices:', error)
-    },
   })
+  
+  // Log errors if they occur
+  if (pricesError) {
+    console.error('Error fetching prices:', pricesError)
+  }
 
   const { data: trmData, error: trmError } = useQuery({
     queryKey: ['trm'],
@@ -90,10 +92,12 @@ export default function LandingPage({
     retry: 1,
     retryDelay: 2000,
     refetchOnWindowFocus: false,
-    onError: (error) => {
-      console.error('Error fetching TRM:', error)
-    },
   })
+  
+  // Log errors if they occur
+  if (trmError) {
+    console.error('Error fetching TRM:', trmError)
+  }
 
   const { data: stats, error: statsError } = useQuery({
     queryKey: ['stats'],
@@ -103,10 +107,12 @@ export default function LandingPage({
     retry: 1,
     retryDelay: 2000,
     refetchOnWindowFocus: false,
-    onError: (error) => {
-      console.error('Error fetching stats:', error)
-    },
   })
+  
+  // Log errors if they occur
+  if (statsError) {
+    console.error('Error fetching stats:', statsError)
+  }
 
   const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || ''
   const whatsappMessage =
