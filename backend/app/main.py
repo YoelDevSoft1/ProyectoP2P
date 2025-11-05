@@ -9,7 +9,7 @@ import structlog
 
 from app.core.config import settings
 from app.core.database import init_db, close_db_connections
-from app.api.endpoints import health, trades, prices, analytics, spot, arbitrage
+from app.api.endpoints import health, trades, prices, analytics, spot, arbitrage, advanced_arbitrage
 
 # Configurar logging estructurado
 structlog.configure(
@@ -99,6 +99,12 @@ app.include_router(
     arbitrage.router,
     prefix=f"{settings.API_V1_STR}/arbitrage",
     tags=["arbitrage"]
+)
+
+app.include_router(
+    advanced_arbitrage.router,
+    prefix=f"{settings.API_V1_STR}/advanced-arbitrage",
+    tags=["advanced-arbitrage"]
 )
 
 
