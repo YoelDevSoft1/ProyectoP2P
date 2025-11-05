@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import {
@@ -78,11 +78,6 @@ export default function LandingPage({
     retryDelay: 2000,
     refetchOnWindowFocus: false,
   })
-  
-  // Log errors if they occur
-  if (pricesError) {
-    console.error('Error fetching prices:', pricesError)
-  }
 
   const { data: trmData, error: trmError } = useQuery({
     queryKey: ['trm'],
@@ -93,11 +88,6 @@ export default function LandingPage({
     retryDelay: 2000,
     refetchOnWindowFocus: false,
   })
-  
-  // Log errors if they occur
-  if (trmError) {
-    console.error('Error fetching TRM:', trmError)
-  }
 
   const { data: stats, error: statsError } = useQuery({
     queryKey: ['stats'],
@@ -108,11 +98,25 @@ export default function LandingPage({
     retryDelay: 2000,
     refetchOnWindowFocus: false,
   })
-  
-  // Log errors if they occur
-  if (statsError) {
-    console.error('Error fetching stats:', statsError)
-  }
+
+  // Log errors using useEffect
+  useEffect(() => {
+    if (pricesError) {
+      console.error('Error fetching prices:', pricesError)
+    }
+  }, [pricesError])
+
+  useEffect(() => {
+    if (trmError) {
+      console.error('Error fetching TRM:', trmError)
+    }
+  }, [trmError])
+
+  useEffect(() => {
+    if (statsError) {
+      console.error('Error fetching stats:', statsError)
+    }
+  }, [statsError])
 
   const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || ''
   const whatsappMessage =
