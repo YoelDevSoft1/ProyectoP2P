@@ -105,15 +105,17 @@ Esta guía te mostrará cómo desplegar tu backend de arbitraje de criptos **com
 
 #### 2.2 Crear Servicios Automáticamente (Opción Fácil)
 
+**⚠️ IMPORTANTE: El plan FREE solo soporta servicios "web", NO workers**
+
 **Render detectará automáticamente tu `render.yaml`:**
 
 1. En Render Dashboard, click **"New +"** → **"Blueprint"**
 2. Conecta tu repositorio `ProyectoP2P`
 3. Render leerá `render.yaml` y creará:
-   - ✅ **p2p-backend** (Web Service)
-   - ✅ **p2p-celery-worker** (Background Worker)
-   - ✅ **p2p-celery-beat** (Background Worker)
+   - ✅ **p2p-backend** (Web Service) - Solo este servicio en FREE
 4. Click **"Apply"**
+
+**Nota:** El archivo `render.yaml` está configurado solo para el backend API. Los workers de Celery deberás ejecutarlos localmente o en otro servicio gratuito.
 
 #### 2.3 O Crear Manualmente (Opción Control)
 
@@ -146,11 +148,15 @@ Esta guía te mostrará cómo desplegar tu backend de arbitraje de criptos **com
      ```
    - **Plan:** **FREE**
 
-**⚠️ IMPORTANTE:** Render FREE tier solo permite **750 horas/mes total**. Si despliegas 3 servicios 24/7, superarás el límite.
+**⚠️ IMPORTANTE: Limitaciones del Plan FREE**
 
-**Solución:** Desplegar solo el **Backend API** en Render FREE. Los workers puedes:
-- Ejecutarlos localmente durante desarrollo
-- O usar otro servicio FREE adicional (Koyeb, Fly.io)
+1. **Solo servicios "web":** El plan FREE no soporta "background workers"
+2. **750 horas/mes:** Suficiente para 1 servicio 24/7 (720 horas)
+
+**Solución:** Desplegar solo el **Backend API** en Render FREE. Los workers de Celery puedes:
+- ✅ Ejecutarlos localmente durante desarrollo (recomendado)
+- ✅ Desplegarlos en otro servicio FREE (Koyeb, Fly.io, Railway)
+- ✅ O actualizar a Render Starter ($7/mes) que incluye workers
 
 ---
 

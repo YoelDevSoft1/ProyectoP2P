@@ -1,4 +1,8 @@
+# Render.com - Configuración SIMPLIFICADA (Solo Backend API)
+# Usa solo 720 horas/mes del free tier (dentro del límite de 750)
+
 services:
+  # Backend API - FastAPI
   - type: web
     name: p2p-backend
     env: docker
@@ -26,64 +30,28 @@ services:
         sync: false
       - key: BINANCE_API_SECRET
         sync: false
+      - key: TRADING_MODE
+        value: manual
+      - key: LOG_LEVEL
+        value: INFO
+      - key: PROFIT_MARGIN_COP
+        value: 2.5
+      - key: PROFIT_MARGIN_VES
+        value: 3.0
+      - key: MIN_TRADE_AMOUNT
+        value: 50
+      - key: MAX_TRADE_AMOUNT
+        value: 1000
 
-  - type: worker
-    name: p2p-celery-worker
-    env: python
-    plan: free
-    region: oregon
-    rootDir: backend
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "celery -A celery_app.worker worker --loglevel=info --concurrency=1"
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.0
-      - key: ENVIRONMENT
-        value: production
-      - key: DEBUG
-        value: "false"
-      - key: DATABASE_URL
-        sync: false
-      - key: REDIS_URL
-        sync: false
-      - key: RABBITMQ_URL
-        sync: false
-      - key: SECRET_KEY
-        sync: false
-      - key: BINANCE_API_KEY
-        sync: false
-      - key: BINANCE_API_SECRET
-        sync: false
-
-  - type: worker
-    name: p2p-celery-beat
-    env: python
-    plan: free
-    region: oregon
-    rootDir: backend
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "celery -A celery_app.worker beat --loglevel=info"
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.0
-      - key: ENVIRONMENT
-        value: production
-      - key: DEBUG
-        value: "false"
-      - key: DATABASE_URL
-        sync: false
-      - key: REDIS_URL
-        sync: false
-      - key: RABBITMQ_URL
-        sync: false
-      - key: SECRET_KEY
-        sync: false
-      - key: BINANCE_API_KEY
-        sync: false
-      - key: BINANCE_API_SECRET
-        sync: false
-
-# Nota: Render no hospeda Redis/RabbitMQ/Postgres gestionados en este archivo; 
-# usa proveedores administrados (Neon/Timescale, Upstash, CloudAMQP) y asigna
-# sus URLs a las variables sincronizadas (sync: false).
-
+# ⚠️ IMPORTANTE: Render FREE plan solo soporta servicios "web"
+# Los "workers" (background workers) NO están disponibles en el plan gratuito
+#
+# Esta configuración solo despliega el Backend API (servicio web)
+#
+# Para ejecutar workers de Celery:
+# 1. Ejecutarlos localmente durante desarrollo
+# 2. O usar otro servicio FREE (Koyeb, Fly.io, Railway)
+# 3. O actualizar a plan Render Starter ($7/mes) que incluye workers
+#
+# Si necesitas la configuración completa con workers (para plan pagado):
+# Ver render.full.yaml
