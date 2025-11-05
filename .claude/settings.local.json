@@ -11,7 +11,13 @@
       "Bash(docker-compose exec:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git mv:*)"
+      "Bash(git mv:*)",
+      "Bash(python:*)",
+      "Bash(pip install:*)",
+      "Bash(copy:*)",
+      "Bash(nul)",
+      "Bash(py:*)",
+      "Bash(py -3.11:*)"
     ],
     "deny": [],
     "ask": []

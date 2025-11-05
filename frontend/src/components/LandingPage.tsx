@@ -69,25 +69,43 @@ export default function LandingPage({
   initialTrm,
   initialStats,
 }: LandingPageProps) {
-  const { data: prices, isLoading: pricesLoading } = useQuery({
+  const { data: prices, isLoading: pricesLoading, error: pricesError } = useQuery({
     queryKey: ['prices'],
     queryFn: () => api.getCurrentPrices(),
     refetchInterval: 10000,
     initialData: initialPrices ?? undefined,
+    retry: 1,
+    retryDelay: 2000,
+    refetchOnError: false,
+    onError: (error) => {
+      console.error('Error fetching prices:', error)
+    },
   })
 
-  const { data: trmData } = useQuery({
+  const { data: safeTrm, error: trmError } = useQuery({
     queryKey: ['trm'],
     queryFn: () => api.getTRM(),
     refetchInterval: 300000,
     initialData: initialTrm ?? undefined,
+    retry: 1,
+    retryDelay: 2000,
+    refetchOnError: false,
+    onError: (error) => {
+      console.error('Error fetching TRM:', error)
+    },
   })
 
-  const { data: stats } = useQuery({
+  const { data: stats, error: statsError } = useQuery({
     queryKey: ['stats'],
     queryFn: () => api.getTradeStats(7),
     refetchInterval: 60000,
     initialData: initialStats ?? undefined,
+    retry: 1,
+    retryDelay: 2000,
+    refetchOnError: false,
+    onError: (error) => {
+      console.error('Error fetching stats:', error)
+    },
   })
 
   const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || ''
@@ -107,8 +125,13 @@ export default function LandingPage({
     }
   }, [whatsappNumber, whatsappMessage])
 
-  const highlightedCopPrice = prices?.COP?.sell_price ?? null
-  const highlightedVesPrice = prices?.VES?.sell_price ?? null
+  // Usar datos iniciales si hay error en la query
+  const safePrices = pricesError ? initialPrices : prices
+  const safeTrm = trmError ? initialTrm : safeTrm
+  const safeStats = statsError ? initialStats : stats
+
+  const highlightedCopPrice = safePrices?.COP?.sell_price ?? null
+  const highlightedVesPrice = safePrices?.VES?.sell_price ?? null
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
@@ -157,8 +180,8 @@ export default function LandingPage({
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600/20 border border-primary-500/30 rounded-full mb-6">
             <Star className="h-4 w-4 text-primary-400 fill-current" />
             <span className="text-primary-300 text-sm font-medium">
-              {stats?.completed
-                ? `+${stats.completed} operaciones exitosas en los últimos ${stats.period_days} días`
+              {safeStats?.completed
+                ? `+${safeStats.completed} operaciones exitosas en los últimos ${safeStats.period_days} días`
                 : 'Operaciones monitoreadas 24/7'}
             </span>
           </div>
@@ -211,11 +234,11 @@ export default function LandingPage({
               <p className="text-gray-400 text-sm">
                 Spread optimizado con margen fijo:{' '}
                 <span className="text-white font-semibold">
-                  {prices?.COP ? `${prices.COP.margin.toFixed(2)}%` : '---'}
+                  {safePrices?.COP ? `${safePrices?.COP.margin.toFixed(2)}%` : '---'}
                 </span>{' '}
                 COP /{' '}
                 <span className="text-white font-semibold">
-                  {prices?.VES ? `${prices.VES.margin.toFixed(2)}%` : '---'}
+                  {safePrices?.VES ? `${safePrices?.VES.margin.toFixed(2)}%` : '---'}
                 </span>{' '}
                 VES.
               </p>
@@ -242,7 +265,7 @@ export default function LandingPage({
             </div>
           </div>
 
-          {(highlightedCopPrice || highlightedVesPrice || trmData?.current) && (
+          {(highlightedCopPrice || highlightedVesPrice || safeTrm?.current) && (
             <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
               {highlightedCopPrice && (
                 <div className="bg-gray-900/60 border border-primary-500/30 rounded-xl p-6">
@@ -253,7 +276,7 @@ export default function LandingPage({
                     ${highlightedCopPrice.toLocaleString('es-CO', { minimumFractionDigits: 2 })}
                   </p>
                   <p className="text-sm text-gray-400 mt-2">
-                    Cotización en vivo actualizada {prices?.COP?.timestamp ? new Date(prices.COP.timestamp).toLocaleTimeString('es-CO') : 'en tiempo real'}.
+                    Cotización en vivo actualizada {safePrices?.COP?.timestamp ? new Date(safePrices?.COP.timestamp).toLocaleTimeString('es-CO') : 'en tiempo real'}.
                   </p>
                 </div>
               )}
@@ -270,17 +293,17 @@ export default function LandingPage({
                   </p>
                 </div>
               )}
-              {trmData?.current && (
+              {safeTrm?.current && (
                 <div className="bg-gray-900/60 border border-primary-500/30 rounded-xl p-6">
                   <p className="text-sm text-primary-300 uppercase tracking-wide mb-2">
                     TRM Oficial Colombia (USD)
                   </p>
                   <p className="text-3xl font-bold text-white">
-                    ${trmData.current.toLocaleString('es-CO', { minimumFractionDigits: 2 })}
+                    ${safeTrm.current.toLocaleString('es-CO', { minimumFractionDigits: 2 })}
                   </p>
                   <p className="text-sm text-gray-400 mt-2">
-                    Variación {trmData.change_percentage >= 0 ? '+' : ''}
-                    {trmData.change_percentage} % en {trmData.history?.length ?? 0} días.
+                    Variación {safeTrm.change_percentage >= 0 ? '+' : ''}
+                    {safeTrm.change_percentage} % en {safeTrm.history?.length ?? 0} días.
                   </p>
                 </div>
               )}
@@ -300,8 +323,8 @@ export default function LandingPage({
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
               <span className="text-green-400 text-sm font-medium">
                 Última actualización:{' '}
-                {prices?.COP?.timestamp
-                  ? new Date(prices.COP.timestamp).toLocaleTimeString('es-CO')
+                {safePrices?.COP?.timestamp
+                  ? new Date(safePrices?.COP.timestamp).toLocaleTimeString('es-CO')
                   : 'en vivo'}
               </span>
             </div>
@@ -319,11 +342,11 @@ export default function LandingPage({
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {prices?.COP && (
-                <PriceCard currency="COP" data={prices.COP} trm={trmData?.current} />
+              {safePrices?.COP && (
+                <PriceCard currency="COP" data={safePrices?.COP} trm={safeTrm?.current} />
               )}
-              {prices?.VES && (
-                <PriceCard currency="VES" data={prices.VES} />
+              {safePrices?.VES && (
+                <PriceCard currency="VES" data={safePrices?.VES} />
               )}
             </div>
           )}
@@ -342,11 +365,11 @@ export default function LandingPage({
               Monitoreamos cada oportunidad con nuestro motor de trading automatizado. Cuando detectamos spreads por
               encima de{' '}
               <span className="text-white font-semibold">
-                {prices?.COP ? `${prices.COP.spread.toFixed(2)}%` : 'el objetivo'}
+                {safePrices?.COP ? `${safePrices?.COP.spread.toFixed(2)}%` : 'el objetivo'}
               </span>{' '}
               en COP y{' '}
               <span className="text-white font-semibold">
-                {prices?.VES ? `${prices.VES.spread.toFixed(2)}%` : 'no disponible'}
+                {safePrices?.VES ? `${safePrices?.VES.spread.toFixed(2)}%` : 'no disponible'}
               </span>{' '}
               en VES, emitimos alertas inmediatas y ejecutamos según tu configuración.
             </p>
@@ -354,15 +377,15 @@ export default function LandingPage({
               <li className="flex items-start gap-3">
                 <CheckCircle className="h-6 w-6 text-primary-500 flex-shrink-0 mt-1" />
                 <span>
-                  <strong className="text-white">Operaciones verificadas:</strong> {stats?.total_trades || 0} trades
-                  gestionados con un éxito del {stats?.success_rate ? stats.success_rate.toFixed(1) : '0'}%.
+                  <strong className="text-white">Operaciones verificadas:</strong> {safeStats?.total_trades || 0} trades
+                  gestionados con un éxito del {safeStats?.success_rate ? safeStats.success_rate.toFixed(1) : '0'}%.
                 </span>
               </li>
               <li className="flex items-start gap-3">
                 <CheckCircle className="h-6 w-6 text-primary-500 flex-shrink-0 mt-1" />
                 <span>
                   <strong className="text-white">Ganancia neta real:</strong> USD{' '}
-                  {stats?.total_profit ? stats.total_profit.toFixed(2) : '0.00'} en la última semana.
+                  {safeStats?.total_profit ? safeStats.total_profit.toFixed(2) : '0.00'} en la última semana.
                 </span>
               </li>
               <li className="flex items-start gap-3">

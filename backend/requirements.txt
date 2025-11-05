@@ -19,6 +19,7 @@ kombu==5.3.5
 
 # Binance
 binance-connector==3.12.0
+binance-futures-connector==3.12.0
 python-binance==1.0.19
 
 # HTTP y WebSockets

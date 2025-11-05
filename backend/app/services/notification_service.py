@@ -3,7 +3,7 @@ Servicio de notificaciones mejorado.
 Alertas instantáneas con enlaces directos accionables.
 """
 import structlog
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from datetime import datetime
 import json
 
@@ -48,10 +48,20 @@ class NotificationService:
         spread = opportunity.get('spread', 0)
         buy_price = opportunity.get('buy_price', 0)
         sell_price = opportunity.get('sell_price', 0)
-        profit_percentage = opportunity.get('potential_profit_percent', 0)
+        profit_percentage = opportunity.get('potential_profit_percent', spread)
+        rank = opportunity.get('rank', 1)
+        buy_available = opportunity.get('buy_available', 0)
+        sell_available = opportunity.get('sell_available', 0)
+        buy_merchant = opportunity.get('buy_merchant') or 'Desconocido'
+        sell_merchant = opportunity.get('sell_merchant') or 'Desconocido'
+        buy_methods = opportunity.get('buy_payment_methods') or []
+        sell_methods = opportunity.get('sell_payment_methods') or []
 
         # Generar enlace directo a Binance P2P
         p2p_link = self._generate_p2p_link(asset, fiat, "BUY")
+
+        buy_methods_text = ', '.join(buy_methods) if buy_methods else 'Diversos'
+        sell_methods_text = ', '.join(sell_methods) if sell_methods else 'Diversos'
 
         # Mensaje formateado
         message = f"""
@@ -60,10 +70,15 @@ class NotificationService:
 💰 Par: {asset}/{fiat}
 📊 Spread: {spread}%
 💸 Ganancia potencial: {profit_percentage}%
+🏅 Ranking: #{rank}
 
 💵 Precios:
    • Compra: ${buy_price:,.2f} {fiat}
+     👤 {buy_merchant} | Métodos: {buy_methods_text}
+     📦 Disponible: {buy_available:,.2f} {asset}
    • Venta: ${sell_price:,.2f} {fiat}
+     👤 {sell_merchant} | Métodos: {sell_methods_text}
+     📦 Demanda: {sell_available:,.2f} {asset}
 
 ⏰ Tiempo: {datetime.utcnow().strftime('%H:%M:%S')} UTC
 
@@ -124,6 +139,195 @@ class NotificationService:
             return await self._send_telegram_message(message)
 
         logger.info("Arbitrage alert", data=arbitrage_data)
+        return True
+
+    async def send_arbitrage_digest(
+        self,
+        opportunities: List[Dict]
+    ) -> bool:
+        """Enviar resumen con las mejores oportunidades de arbitraje."""
+        if not opportunities:
+            return False
+
+        def _format_percent(value: Optional[float]) -> str:
+            try:
+                if value is None:
+                    return "0.00%"
+                return f"{float(value):.2f}%"
+            except (TypeError, ValueError):  # pragma: no cover - defensivo
+                return "0.00%"
+
+        def _format_price(value: Optional[float], suffix: str = "", decimals: int = 2) -> str:
+            try:
+                if value is None:
+                    return f"{0:.{decimals}f}{suffix}"
+                return f"{float(value):,.{decimals}f}{suffix}"
+            except (TypeError, ValueError):
+                return f"{0:.{decimals}f}{suffix}"
+
+        lines = ["📈 *TOP OPORTUNIDADES DE ARBITRAJE* 📈", ""]
+
+        for idx, opportunity in enumerate(opportunities, start=1):
+            strategy = opportunity.get("strategy", "desconocida").replace("_", " ").title()
+            label = opportunity.get("label") or opportunity.get("asset", "N/A")
+            profit_value = (
+                opportunity.get("net_profit_percentage")
+                or opportunity.get("profit_percentage")
+                or opportunity.get("score")
+            )
+            liquidity_value = opportunity.get("liquidity")
+            liquidity_asset = opportunity.get("liquidity_asset") or opportunity.get("asset", "USDT")
+            liquidity_text = ""
+            if liquidity_value and liquidity_value > 0:
+                liquidity_text = f" | Liquidez: {float(liquidity_value):,.2f} {liquidity_asset}"
+
+            lines.append(f"{idx}. *{label}* — {strategy}\n   Profit estimado: {_format_percent(profit_value)}{liquidity_text}")
+
+            details = opportunity.get("details", {})
+            if opportunity.get("strategy") == "spot_to_p2p":
+                spot_price = details.get("spot_price_usd")
+                lines.append(
+                    "   Spot: "
+                    + f"${_format_price(spot_price, decimals=4)} | P2P: "
+                    + _format_price(details.get('p2p_sell_price_fiat'), f" {opportunity.get('fiat', '')}")
+                )
+            elif opportunity.get("strategy") == "cross_currency":
+                buy = details.get("buy_quote", {})
+                sell = details.get("sell_quote", {})
+                fiat_from = details.get("fiat_from")
+                fiat_to = details.get("fiat_to")
+                lines.append(
+                    "   Comprar en "
+                    + f"{fiat_from}: {_format_price(buy.get('price'), f' {fiat_from}')}"
+                    + " | Vender en "
+                    + f"{fiat_to}: {_format_price(sell.get('price'), f' {fiat_to}')}"
+                )
+            elif opportunity.get("strategy") == "triangle_arbitrage":
+                lines.append(f"   Ruta: {opportunity.get('label')}")
+
+            lines.append("")
+
+        lines.append(f"⏰ Actualizado: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
+
+        message = "\n".join(lines)
+
+        if self.telegram_enabled:
+            return await self._send_telegram_message(message)
+
+        logger.info("Arbitrage digest", opportunities=opportunities)
+        return True
+
+    async def send_spread_digest(
+        self,
+        opportunities: List[Dict]
+    ) -> bool:
+        """Enviar resumen con los mejores spreads encontrados en P2P."""
+        if not opportunities:
+            return False
+
+        def _format_percent(value: Optional[float]) -> str:
+            try:
+                if value is None:
+                    return "0.00%"
+                return f"{float(value):.2f}%"
+            except (TypeError, ValueError):
+                return "0.00%"
+
+        def _format_price(value: Optional[float], fiat: str = "") -> str:
+            try:
+                suffix = f" {fiat}" if fiat else ""
+                if value is None:
+                    return f"0.00{suffix}"
+                return f"{float(value):,.2f}{suffix}"
+            except (TypeError, ValueError):
+                suffix = f" {fiat}" if fiat else ""
+                return f"0.00{suffix}"
+
+        def _extract_data(item: Dict) -> Dict:
+            data = {
+                "asset": item.get("asset"),
+                "fiat": item.get("fiat"),
+                "spread": item.get("spread"),
+                "op": item.get("opportunity_data") or item,
+            }
+            if not data["asset"]:
+                data["asset"] = data["op"].get("asset")
+            if not data["fiat"]:
+                data["fiat"] = data["op"].get("fiat")
+            if data["spread"] is None:
+                data["spread"] = data["op"].get("spread")
+            data["rank"] = data["op"].get("rank")
+            return data
+
+        sorted_ops: List[Dict] = []
+        for item in opportunities:
+            data = _extract_data(item)
+            if not data.get("asset") or not data.get("fiat"):
+                continue
+            sorted_ops.append({"data": data, "raw": item})
+
+        if not sorted_ops:
+            return False
+
+        sorted_ops.sort(key=lambda entry: entry["data"].get("spread") or 0, reverse=True)
+
+        top_limit = max(1, settings.P2P_TOP_SPREADS)
+        selected: List[Dict] = []
+        seen_pairs = set()
+
+        for entry in sorted_ops:
+            data = entry["data"]
+            pair_key = (data["asset"], data["fiat"])
+            if pair_key in seen_pairs:
+                continue
+            seen_pairs.add(pair_key)
+            selected.append(entry)
+            if len(selected) >= top_limit:
+                break
+
+        if not selected:
+            return False
+
+        lines = ["📊 *TOP SPREADS BINANCE P2P* 📊", ""]
+
+        for idx, entry in enumerate(selected, start=1):
+            data = entry["data"]
+            op = entry["raw"].get("opportunity_data") or entry["raw"]
+            spread = _format_percent(data.get("spread"))
+            buy_price = _format_price(op.get("buy_price"), data.get("fiat"))
+            sell_price = _format_price(op.get("sell_price"), data.get("fiat"))
+            buy_merchant = op.get("buy_merchant") or "Desconocido"
+            sell_merchant = op.get("sell_merchant") or "Desconocido"
+            try:
+                buy_available = float(op.get("buy_available") or 0)
+            except (TypeError, ValueError):
+                buy_available = 0.0
+            try:
+                sell_available = float(op.get("sell_available") or 0)
+            except (TypeError, ValueError):
+                sell_available = 0.0
+            lines.append(
+                f"{idx}. *{data['asset']}/{data['fiat']}* — Spread {spread}"
+            )
+            lines.append(
+                "   Compra: "
+                + f"{buy_price} (👤 {buy_merchant}, 📦 {buy_available:.2f} {data['asset']})"
+            )
+            lines.append(
+                "   Venta: "
+                + f"{sell_price} (👤 {sell_merchant}, 📦 {sell_available:.2f} {data['asset']})"
+            )
+            lines.append("")
+
+        lines.append(f"🔄 Pares analizados: {len(seen_pairs)}")
+        lines.append(f"⏰ {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
+
+        message = "\n".join(lines)
+
+        if self.telegram_enabled:
+            return await self._send_telegram_message(message)
+
+        logger.info("Spread digest", opportunities=selected)
         return True
 
     async def send_trade_executed_alert(

@@ -56,6 +56,12 @@ class Settings(BaseSettings):
     FX_FALLBACK_RATES: Dict[str, float] = Field(default_factory=lambda: {
         "COP": 4000.0,
         "VES": 36.5,
+        "USD": 1.0,
+        "BRL": 5.0,
+        "ARS": 900.0,
+        "CLP": 900.0,
+        "PEN": 3.8,
+        "MXN": 17.0,
     })
 
     # Tasa Venezuela
@@ -68,12 +74,21 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
     # CORS
-    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000"]
+    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000", "https://proyecto-p2p.vercel.app"]
 
     @validator("BACKEND_CORS_ORIGINS", pre=True)
     def assemble_cors_origins(cls, v):
         if isinstance(v, str):
-            return [i.strip() for i in v.split(",")]
+            origins = [i.strip() for i in v.split(",")]
+            # Si contiene "*" o está en modo desarrollo, permitir todos los orígenes
+            if "*" in origins or any("ngrok" in o.lower() for o in origins):
+                return ["*"]
+            return origins
+        # Si es una lista y contiene ngrok o wildcard, permitir todos
+        if isinstance(v, list):
+            for origin in v:
+                if "*" in origin or "ngrok" in origin.lower():
+                    return ["*"]
         return v
 
     # Logging
@@ -96,6 +111,14 @@ class Settings(BaseSettings):
 
     # Análisis
     SPREAD_THRESHOLD: float = 0.5
+    P2P_MONITORED_ASSETS: List[str] = Field(default_factory=lambda: ["USDT"])
+    P2P_MONITORED_FIATS: List[str] = Field(default_factory=lambda: ["COP", "VES", "BRL", "ARS", "CLP", "PEN", "MXN"])
+    P2P_ANALYSIS_ROWS: int = 20
+    P2P_TOP_SPREADS: int = 3
+    ARBITRAGE_MONITORED_ASSETS: List[str] = Field(default_factory=lambda: ["USDT", "BTC", "ETH"])
+    ARBITRAGE_MONITORED_FIATS: List[str] = Field(default_factory=lambda: ["USD", "COP", "VES", "BRL", "ARS", "CLP", "PEN", "MXN"])
+    ARBITRAGE_TOP_OPPORTUNITIES: int = 5
+    ARBITRAGE_MIN_LIQUIDITY_USDT: float = 100.0
     ARBITRAGE_MIN_PROFIT: float = 1.0
     UPDATE_PRICE_INTERVAL: int = 10
 

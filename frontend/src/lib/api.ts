@@ -33,11 +33,17 @@ const api = {
 
   // Prices
   getCurrentPrices: async (asset = 'USDT', fiat?: string) => {
-    const params = new URLSearchParams({ asset })
-    if (fiat) params.append('fiat', fiat)
+    try {
+      const params = new URLSearchParams({ asset })
+      if (fiat) params.append('fiat', fiat)
 
-    const { data } = await axiosInstance.get(`/prices/current?${params}`)
-    return data
+      const { data } = await axiosInstance.get(`/prices/current?${params}`)
+      return data
+    } catch (error: any) {
+      console.error('Error fetching current prices:', error)
+      // Retornar un objeto vacío en lugar de lanzar error
+      return {}
+    }
   },
 
   getPriceHistory: async (asset = 'USDT', fiat = 'COP', hours = 24) => {
@@ -48,8 +54,14 @@ const api = {
   },
 
   getTRM: async () => {
-    const { data } = await axiosInstance.get('/prices/trm')
-    return data
+    try {
+      const { data } = await axiosInstance.get('/prices/trm')
+      return data
+    } catch (error: any) {
+      console.error('Error fetching TRM:', error)
+      // Retornar null en lugar de lanzar error
+      return null
+    }
   },
 
   getSpreadAnalysis: async (asset = 'USDT') => {
@@ -75,10 +87,16 @@ const api = {
   },
 
   getTradeStats: async (days = 7) => {
-    const { data } = await axiosInstance.get('/trades/stats/summary', {
-      params: { days },
-    })
-    return data
+    try {
+      const { data } = await axiosInstance.get('/trades/stats/summary', {
+        params: { days },
+      })
+      return data
+    } catch (error: any) {
+      console.error('Error fetching trade stats:', error)
+      // Retornar null en lugar de lanzar error
+      return null
+    }
   },
 
   // Analytics

@@ -49,6 +49,52 @@ class BinanceService:
         """Cerrar el cliente HTTP reutilizable."""
         await self._client.aclose()
 
+    def _fiat_threshold(self, fiat: str) -> float:
+        """Calcular el umbral de liquidez mínimo expresado en fiat local."""
+        min_notional_usd = settings.P2P_MIN_SURPLUS_USDT
+        if min_notional_usd <= 0:
+            return 0.0
+
+        rate = settings.FX_FALLBACK_RATES.get(fiat.upper())
+        if not rate or rate <= 0:
+            # Si no tenemos tasa, asumir 1:1 para no descartar oportunidades.
+            rate = 1.0
+
+        return min_notional_usd * rate
+
+    def _is_liquid_enough(
+        self,
+        *,
+        asset: str,
+        fiat: str,
+        price: float,
+        available: float,
+    ) -> bool:
+        """Comprobar si un anuncio cumple con el mínimo de liquidez configurado."""
+        try:
+            if available is None:
+                return False
+
+            available = float(available)
+            if available <= 0:
+                return False
+
+            if asset.upper() == "USDT":
+                return available >= settings.P2P_MIN_SURPLUS_USDT
+
+            price = float(price)
+            if price <= 0:
+                return False
+
+            threshold = self._fiat_threshold(fiat)
+            if threshold <= 0:
+                return True
+
+            notional = available * price
+            return notional >= threshold
+        except (TypeError, ValueError):  # pragma: no cover - defensivo
+            return False
+
     async def get_p2p_ads(
         self,
         asset: str = "USDT",
@@ -145,10 +191,18 @@ class BinanceService:
                 adv = ad.get("adv", {})
                 price = float(adv.get("price", 0))
                 available_asset = float(adv.get("surplusAmount", 0))
-                min_single_amount = float(adv.get("minSingleTransAmount", 0))
-                max_single_amount = float(adv.get("maxSingleTransAmount", 0))
+                min_single_amount = float(adv.get("minSingleTransAmount", 0) or 0)
+                max_single_amount = float(adv.get("maxSingleTransAmount", 0) or 0)
 
-                if price <= 0 or available_asset < settings.P2P_MIN_SURPLUS_USDT:
+                if price <= 0:
+                    continue
+
+                if not self._is_liquid_enough(
+                    asset=asset,
+                    fiat=fiat,
+                    price=price,
+                    available=available_asset,
+                ):
                     continue
 
                 quote = {
@@ -205,11 +259,22 @@ class BinanceService:
             try:
                 price = float(ad.get("adv", {}).get("price", 0))
                 available = float(ad.get("adv", {}).get("surplusAmount", 0))
-                if price > 0 and available >= settings.P2P_MIN_SURPLUS_USDT:
+                if price > 0 and self._is_liquid_enough(
+                    asset=asset,
+                    fiat=fiat,
+                    price=price,
+                    available=available,
+                ):
                     buy_prices.append({
                         "price": price,
                         "available": available,
                         "merchant": ad.get("advertiser", {}).get("nickName", ""),
+                        "payment_methods": [
+                            method.get("identifier") or method.get("tradeMethodShortName")
+                            for method in ad.get("adv", {}).get("tradeMethods", [])
+                        ],
+                        "min_single_amount": float(ad.get("adv", {}).get("minSingleTransAmount", 0) or 0),
+                        "max_single_amount": float(ad.get("adv", {}).get("maxSingleTransAmount", 0) or 0),
                     })
             except (ValueError, TypeError):
                 continue
@@ -218,11 +283,22 @@ class BinanceService:
             try:
                 price = float(ad.get("adv", {}).get("price", 0))
                 available = float(ad.get("adv", {}).get("surplusAmount", 0))
-                if price > 0 and available >= settings.P2P_MIN_SURPLUS_USDT:
+                if price > 0 and self._is_liquid_enough(
+                    asset=asset,
+                    fiat=fiat,
+                    price=price,
+                    available=available,
+                ):
                     sell_prices.append({
                         "price": price,
                         "available": available,
                         "merchant": ad.get("advertiser", {}).get("nickName", ""),
+                        "payment_methods": [
+                            method.get("identifier") or method.get("tradeMethodShortName")
+                            for method in ad.get("adv", {}).get("tradeMethods", [])
+                        ],
+                        "min_single_amount": float(ad.get("adv", {}).get("minSingleTransAmount", 0) or 0),
+                        "max_single_amount": float(ad.get("adv", {}).get("maxSingleTransAmount", 0) or 0),
                     })
             except (ValueError, TypeError):
                 continue

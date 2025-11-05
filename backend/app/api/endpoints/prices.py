@@ -19,7 +19,6 @@ router = APIRouter()
 async def get_current_prices(
     asset: str = Query(default="USDT", description="Criptomoneda"),
     fiat: Optional[str] = Query(default=None, description="Moneda fiat (COP, VES, o ambas)"),
-    redis: aioredis.Redis = Depends(get_redis)
 ):
     """
     Obtener precios actuales de Binance P2P con margen de ganancia.
@@ -33,66 +32,96 @@ async def get_current_prices(
     fiats = [fiat] if fiat else ["COP", "VES"]
     results = {}
 
-    for currency in fiats:
-        # Intentar obtener de cache
-        cache_key = f"price:{asset}:{currency}"
-        cached = await redis.get(cache_key)
+    try:
+        for currency in fiats:
+            # Intentar obtener de cache (si Redis está disponible)
+            cache_key = f"price:{asset}:{currency}"
+            cached = None
+            redis_available = False
+            
+            try:
+                redis = await get_redis()
+                cached = await redis.get(cache_key)
+                redis_available = True
+            except Exception:
+                # Redis no está disponible, continuar sin caché
+                redis_available = False
+                pass
 
-        if cached:
-            import json
-            results[currency] = json.loads(cached)
-        else:
-            # Obtener precios de Binance
-            buy_price = await binance_service.get_best_price(
-                asset=asset,
-                fiat=currency,
-                trade_type="BUY"
-            )
+            if cached:
+                import json
+                results[currency] = json.loads(cached)
+            else:
+                # Obtener precios de Binance
+                buy_price = await binance_service.get_best_price(
+                    asset=asset,
+                    fiat=currency,
+                    trade_type="BUY"
+                )
 
-            sell_price = await binance_service.get_best_price(
-                asset=asset,
-                fiat=currency,
-                trade_type="SELL"
-            )
+                sell_price = await binance_service.get_best_price(
+                    asset=asset,
+                    fiat=currency,
+                    trade_type="SELL"
+                )
 
-            # Aplicar margen de ganancia
-            margin = settings.PROFIT_MARGIN_COP if currency == "COP" else settings.PROFIT_MARGIN_VES
+                # Aplicar margen de ganancia
+                margin = settings.PROFIT_MARGIN_COP if currency == "COP" else settings.PROFIT_MARGIN_VES
 
-            # Nuestro precio de venta (el usuario nos compra)
-            our_sell_price = buy_price * (1 + margin / 100)
+                # Nuestro precio de venta (el usuario nos compra)
+                our_sell_price = buy_price * (1 + margin / 100)
 
-            # Nuestro precio de compra (el usuario nos vende)
-            our_buy_price = sell_price * (1 - margin / 100)
+                # Nuestro precio de compra (el usuario nos vende)
+                our_buy_price = sell_price * (1 - margin / 100)
 
-            price_data = {
-                "asset": asset,
-                "fiat": currency,
-                "buy_price": round(our_buy_price, 2),  # Precio al que compramos
-                "sell_price": round(our_sell_price, 2),  # Precio al que vendemos
-                "market_buy": round(buy_price, 2),
-                "market_sell": round(sell_price, 2),
-                "spread": round(((our_sell_price - our_buy_price) / our_buy_price) * 100, 2),
-                "margin": margin,
-                "timestamp": datetime.utcnow().isoformat()
-            }
+                price_data = {
+                    "asset": asset,
+                    "fiat": currency,
+                    "buy_price": round(our_buy_price, 2),  # Precio al que compramos
+                    "sell_price": round(our_sell_price, 2),  # Precio al que vendemos
+                    "market_buy": round(buy_price, 2),
+                    "market_sell": round(sell_price, 2),
+                    "spread": round(((our_sell_price - our_buy_price) / our_buy_price) * 100, 2),
+                    "margin": margin,
+                    "timestamp": datetime.utcnow().isoformat()
+                }
 
-            # Si es COP, incluir TRM
-            if currency == "COP":
-                trm_service = TRMService()
-                trm = await trm_service.get_current_trm()
-                price_data["trm"] = trm
+                # Si es COP, incluir TRM
+                if currency == "COP":
+                    trm_service = TRMService()
+                    trm = await trm_service.get_current_trm()
+                    price_data["trm"] = trm
 
-            results[currency] = price_data
+                results[currency] = price_data
 
-            # Guardar en cache
-            import json
-            await redis.setex(
-                cache_key,
-                settings.UPDATE_PRICE_INTERVAL,
-                json.dumps(price_data)
-            )
+                # Guardar en cache solo si Redis está disponible
+                if redis_available:
+                    try:
+                        import json
+                        redis = await get_redis()
+                        await redis.setex(
+                            cache_key,
+                            settings.UPDATE_PRICE_INTERVAL,
+                            json.dumps(price_data)
+                        )
+                    except Exception:
+                        # Ignorar errores al guardar en caché
+                        pass
 
-    return results
+        return results
+    except Exception as e:
+        import structlog
+        logger = structlog.get_logger()
+        logger.error("Error in get_current_prices", error=str(e), asset=asset, fiat=fiat)
+        # Retornar un objeto vacío en lugar de lanzar error 500
+        # Esto permite que el frontend muestre los datos iniciales o un estado de error controlado
+        return {}
+    finally:
+        # Cerrar el servicio de Binance
+        try:
+            await binance_service.aclose()
+        except Exception:
+            pass
 
 
 @router.get("/history")

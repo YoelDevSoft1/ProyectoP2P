@@ -1,7 +1,7 @@
 """
 Punto de entrada principal de la aplicación FastAPI.
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from contextlib import asynccontextmanager
@@ -9,7 +9,7 @@ import structlog
 
 from app.core.config import settings
 from app.core.database import init_db, close_db_connections
-from app.api.endpoints import health, trades, prices, analytics, spot, arbitrage, advanced_arbitrage
+from app.api.endpoints import health, trades, prices, analytics, spot, advanced_arbitrage
 
 # Configurar logging estructurado
 structlog.configure(
@@ -52,16 +52,52 @@ app = FastAPI(
 )
 
 # Middleware CORS
+# En desarrollo, permitir todos los orígenes (necesario para ngrok y Vercel)
+cors_origins = settings.BACKEND_CORS_ORIGINS
+# Si está en desarrollo o producción, permitir todos los orígenes para flexibilidad
+if settings.ENVIRONMENT == "development" or "*" in cors_origins:
+    cors_origins = ["*"]
+else:
+    # Agregar Vercel si no está ya incluido
+    vercel_origin = "https://proyecto-p2p.vercel.app"
+    if vercel_origin not in cors_origins:
+        cors_origins = list(cors_origins) + [vercel_origin]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Middleware de compresión
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# Middleware para manejar ngrok interceptor page y OPTIONS requests
+@app.middleware("http")
+async def ngrok_cors_middleware(request: Request, call_next):
+    """
+    Middleware para manejar requests de ngrok y CORS preflight.
+    """
+    # Manejar OPTIONS (preflight requests)
+    if request.method == "OPTIONS":
+        response = Response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        return response
+    
+    response = await call_next(request)
+    
+    # Agregar headers CORS a todas las respuestas si estamos en desarrollo
+    if settings.ENVIRONMENT == "development":
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+    
+    return response
 
 
 # Incluir routers
@@ -93,12 +129,6 @@ app.include_router(
     spot.router,
     prefix=f"{settings.API_V1_STR}/spot",
     tags=["spot"]
-)
-
-app.include_router(
-    arbitrage.router,
-    prefix=f"{settings.API_V1_STR}/arbitrage",
-    tags=["arbitrage"]
 )
 
 app.include_router(

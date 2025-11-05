@@ -22,9 +22,14 @@ logger = logging.getLogger(__name__)
 class TriangleArbitrageService:
     """Servicio para detectar y analizar oportunidades de arbitraje triangular"""
 
-    def __init__(self):
-        self.p2p_service = BinanceService()
-        self.spot_service = BinanceSpotService()
+    def __init__(
+        self,
+        p2p_service: Optional[BinanceService] = None,
+        spot_service: Optional[BinanceSpotService] = None,
+    ):
+        self._owns_p2p = p2p_service is None
+        self.p2p_service = p2p_service or BinanceService()
+        self.spot_service = spot_service or BinanceSpotService()
 
         # Comisiones típicas
         self.P2P_FEE = 0.0  # Binance P2P no cobra comisión
@@ -331,11 +336,14 @@ class TriangleArbitrageService:
 
         try:
             # Obtener profundidad de mercado para cada paso
-            step1_depth = await self.p2p_service.get_market_depth(asset, fiat_from, "BUY", limit=10)
-            step2_depth = await self.p2p_service.get_market_depth(asset, fiat_to, "SELL", limit=10)
+            depth_from = await self.p2p_service.get_market_depth(asset, fiat_from, rows=10)
+            depth_to = await self.p2p_service.get_market_depth(asset, fiat_to, rows=10)
 
-            step1_liquidity = sum([ad.get("tradableQuantity", 0) for ad in step1_depth]) if step1_depth else 0
-            step2_liquidity = sum([ad.get("tradableQuantity", 0) for ad in step2_depth]) if step2_depth else 0
+            buy_levels = depth_from.get("buy_depth", []) if depth_from else []
+            sell_levels = depth_to.get("sell_depth", []) if depth_to else []
+
+            step1_liquidity = sum(level.get("available", 0) for level in buy_levels)
+            step2_liquidity = sum(level.get("available", 0) for level in sell_levels)
 
             # El cuello de botella es el paso con menor liquidez
             bottleneck_liquidity = min(step1_liquidity, step2_liquidity)
@@ -357,6 +365,14 @@ class TriangleArbitrageService:
                 "is_liquid": False,
                 "error": str(e)
             }
+
+    async def aclose(self) -> None:
+        """Cerrar clientes subyacentes si pertenecen a esta instancia."""
+        if self._owns_p2p and hasattr(self.p2p_service, "aclose"):
+            try:
+                await self.p2p_service.aclose()
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Error closing triangle P2P service", error=str(exc))
 
     def _generate_recommendation(self, opportunity: Dict, liquidity: Dict) -> str:
         """Genera recomendación de ejecución basada en oportunidad y liquidez"""

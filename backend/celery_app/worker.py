@@ -4,16 +4,34 @@ Celery worker para tareas asíncronas.
 from celery import Celery
 from celery.schedules import crontab
 import structlog
+import os
 
 from app.core.config import settings
 
 logger = structlog.get_logger()
 
+# Determinar backend de resultados
+# Prioridad:
+# 1. Variable de entorno CELERY_RESULT_BACKEND (si está configurada)
+# 2. Si CELERY_USE_RPC_FALLBACK=true, usar rpc:// (útil para desarrollo sin Redis)
+# 3. Usar Redis de settings.REDIS_URL
+
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND")
+
+if not CELERY_RESULT_BACKEND:
+    # Verificar si se debe usar RPC fallback
+    use_rpc_fallback = os.getenv("CELERY_USE_RPC_FALLBACK", "false").lower() == "true"
+    if use_rpc_fallback:
+        logger.info("Usando RabbitMQ RPC como backend de resultados (fallback)")
+        CELERY_RESULT_BACKEND = "rpc://"
+    else:
+        CELERY_RESULT_BACKEND = settings.REDIS_URL
+
 # Crear instancia de Celery
 celery_app = Celery(
     "p2p_trading",
     broker=settings.RABBITMQ_URL,
-    backend=settings.REDIS_URL
+    backend=CELERY_RESULT_BACKEND
 )
 
 # Configuración
@@ -28,6 +46,26 @@ celery_app.conf.update(
     task_soft_time_limit=240,  # 4 minutos
     worker_prefetch_multiplier=1,
     worker_max_tasks_per_child=1000,
+    # Configuración para backend de resultados
+    result_backend_transport_options={
+        "master_name": "mymaster",
+        "retry_policy": {
+            "timeout": 5.0,
+            "interval_start": 0,
+            "interval_step": 0.2,
+            "interval_max": 0.2,
+            "max_retries": 3,
+        },
+        "visibility_timeout": 3600,
+        "socket_connect_timeout": 5,
+        "socket_timeout": 5,
+        "retry_on_timeout": True,
+    } if CELERY_RESULT_BACKEND.startswith("redis") else {},
+    # No fallar si el backend no está disponible inmediatamente
+    result_backend_always_retry=True,
+    result_backend_max_retries=10,
+    # Configuración para evitar warnings de deprecación en Celery 6.0+
+    broker_connection_retry_on_startup=True,
 )
 
 # Importar tasks
