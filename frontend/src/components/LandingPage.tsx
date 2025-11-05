@@ -247,7 +247,7 @@ export default function LandingPage({
               {highlightedCopPrice && (
                 <div className="bg-gray-900/60 border border-primary-500/30 rounded-xl p-6">
                   <p className="text-sm text-primary-300 uppercase tracking-wide mb-2">
-                    Venta USDT > COP (cliente recibe)
+                    Venta USDT {'>'} COP (cliente recibe)
                   </p>
                   <p className="text-3xl font-bold text-white">
                     ${highlightedCopPrice.toLocaleString('es-CO', { minimumFractionDigits: 2 })}
@@ -260,7 +260,7 @@ export default function LandingPage({
               {highlightedVesPrice && (
                 <div className="bg-gray-900/60 border border-primary-500/30 rounded-xl p-6">
                   <p className="text-sm text-primary-300 uppercase tracking-wide mb-2">
-                    Venta USDT > VES (cliente recibe)
+                    Venta USDT {'>'} VES (cliente recibe)
                   </p>
                   <p className="text-3xl font-bold text-white">
                     Bs. {highlightedVesPrice.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
