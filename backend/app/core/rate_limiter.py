@@ -16,6 +16,46 @@ class GlobalRateLimiter:
     entre múltiples workers de Celery.
     
     Usa un token bucket distribuido implementado con Redis.
+    Los scripts Lua están cacheados para mejor rendimiento.
+    """
+    
+    # Script Lua para token bucket (cacheado)
+    LUA_SCRIPT = """
+    local key = KEYS[1]
+    local last_update_key = KEYS[2]
+    local rate = tonumber(ARGV[1])
+    local burst = tonumber(ARGV[2])
+    local tokens_requested = tonumber(ARGV[3])
+    local now = tonumber(ARGV[4])
+    
+    -- Obtener estado actual
+    local current_tokens = tonumber(redis.call('GET', key) or burst)
+    local last_update = tonumber(redis.call('GET', last_update_key) or now)
+    
+    -- Calcular tokens a agregar basado en el tiempo transcurrido
+    local elapsed = now - last_update
+    local tokens_to_add = elapsed * rate
+    
+    -- Actualizar tokens (no exceder burst)
+    current_tokens = math.min(burst, current_tokens + tokens_to_add)
+    
+    -- Verificar si hay suficientes tokens
+    if current_tokens >= tokens_requested then
+        -- Consumir tokens
+        current_tokens = current_tokens - tokens_requested
+        redis.call('SET', key, current_tokens)
+        redis.call('SET', last_update_key, now)
+        redis.call('EXPIRE', key, 60)
+        redis.call('EXPIRE', last_update_key, 60)
+        return 1
+    else
+        -- No hay suficientes tokens, actualizar estado pero no consumir
+        redis.call('SET', key, current_tokens)
+        redis.call('SET', last_update_key, now)
+        redis.call('EXPIRE', key, 60)
+        redis.call('EXPIRE', last_update_key, 60)
+        return 0
+    end
     """
     
     def __init__(
@@ -29,6 +69,30 @@ class GlobalRateLimiter:
         self.key_prefix = key_prefix
         self.key = f"{key_prefix}:tokens"
         self.last_update_key = f"{key_prefix}:last_update"
+        self._script_sha: Optional[str] = None  # SHA del script Lua cacheado
+    
+    async def _load_script(self, redis_client) -> str:
+        """
+        Cargar script Lua en Redis y cachear el SHA.
+        Esto mejora el rendimiento al evitar enviar el script en cada operación.
+        
+        Args:
+            redis_client: Cliente Redis
+            
+        Returns:
+            SHA del script cacheado
+        """
+        if self._script_sha is None:
+            try:
+                # Cargar script en Redis y obtener SHA
+                self._script_sha = await redis_client.script_load(self.LUA_SCRIPT)
+                logger.debug("Rate limiter Lua script loaded and cached", sha=self._script_sha[:8])
+            except Exception as e:
+                logger.warning("Failed to load Lua script, using eval instead", error=str(e))
+                # Si falla, usaremos eval directamente (menos eficiente pero funciona)
+                self._script_sha = None
+        
+        return self._script_sha
     
     async def acquire(self, tokens: int = 1) -> bool:
         """
@@ -49,55 +113,51 @@ class GlobalRateLimiter:
             
             now = time.time()
             
-            # Usar script Lua para operación atómica
-            lua_script = """
-            local key = KEYS[1]
-            local last_update_key = KEYS[2]
-            local rate = tonumber(ARGV[1])
-            local burst = tonumber(ARGV[2])
-            local tokens_requested = tonumber(ARGV[3])
-            local now = tonumber(ARGV[4])
+            # Intentar usar script cacheado (EVALSHA)
+            script_sha = await self._load_script(redis_client)
             
-            -- Obtener estado actual
-            local current_tokens = tonumber(redis.call('GET', key) or burst)
-            local last_update = tonumber(redis.call('GET', last_update_key) or now)
-            
-            -- Calcular tokens a agregar basado en el tiempo transcurrido
-            local elapsed = now - last_update
-            local tokens_to_add = elapsed * rate
-            
-            -- Actualizar tokens (no exceder burst)
-            current_tokens = math.min(burst, current_tokens + tokens_to_add)
-            
-            -- Verificar si hay suficientes tokens
-            if current_tokens >= tokens_requested then
-                -- Consumir tokens
-                current_tokens = current_tokens - tokens_requested
-                redis.call('SET', key, current_tokens)
-                redis.call('SET', last_update_key, now)
-                redis.call('EXPIRE', key, 60)
-                redis.call('EXPIRE', last_update_key, 60)
-                return 1
-            else
-                -- No hay suficientes tokens, actualizar estado pero no consumir
-                redis.call('SET', key, current_tokens)
-                redis.call('SET', last_update_key, now)
-                redis.call('EXPIRE', key, 60)
-                redis.call('EXPIRE', last_update_key, 60)
-                return 0
-            end
-            """
-            
-            result = await redis_client.eval(
-                lua_script,
-                2,
-                self.key,
-                self.last_update_key,
-                str(self.rate),
-                str(self.burst),
-                str(tokens),
-                str(now)
-            )
+            try:
+                if script_sha:
+                    # Usar EVALSHA con script cacheado (más eficiente)
+                    result = await redis_client.evalsha(
+                        script_sha,
+                        2,
+                        self.key,
+                        self.last_update_key,
+                        str(self.rate),
+                        str(self.burst),
+                        str(tokens),
+                        str(now)
+                    )
+                else:
+                    # Fallback a EVAL si no se pudo cachear el script
+                    result = await redis_client.eval(
+                        self.LUA_SCRIPT,
+                        2,
+                        self.key,
+                        self.last_update_key,
+                        str(self.rate),
+                        str(self.burst),
+                        str(tokens),
+                        str(now)
+                    )
+            except Exception as e:
+                # Si EVALSHA falla (script no encontrado), recargar y usar EVAL
+                if "NOSCRIPT" in str(e) or "not found" in str(e).lower():
+                    logger.debug("Script not found in cache, reloading")
+                    self._script_sha = None
+                    result = await redis_client.eval(
+                        self.LUA_SCRIPT,
+                        2,
+                        self.key,
+                        self.last_update_key,
+                        str(self.rate),
+                        str(self.burst),
+                        str(tokens),
+                        str(now)
+                    )
+                else:
+                    raise
             
             return bool(result)
             

@@ -169,6 +169,103 @@ class IdempotencyService:
 idempotency_service = IdempotencyService()
 
 
+# Decorador para tareas síncronas de Celery
+import functools
+import hashlib
+import time
+
+
+def idempotent_celery_task(ttl: int = 300, key_prefix: str = "celery_task"):
+    """
+    Decorador para hacer tareas de Celery idempotentes.
+
+    Previene ejecuciones duplicadas de la misma tarea usando Redis como lock.
+
+    Args:
+        ttl: Tiempo de vida del lock en segundos (default: 5 minutos)
+        key_prefix: Prefijo para la clave de Redis
+
+    Usage:
+        @celery_app.task(name="my_task")
+        @idempotent_celery_task(ttl=60)
+        def my_task(arg1, arg2):
+            # Task logic
+            pass
+    """
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            # Generar clave única basada en nombre de función y argumentos
+            task_name = func.__name__
+
+            # Crear hash de argumentos para key única
+            # Solo usar argumentos no vacíos para evitar cambios en hash
+            args_str = str(sorted([a for a in args if a])) + str(sorted([
+                (k, v) for k, v in kwargs.items() if v
+            ]))
+            args_hash = hashlib.sha256(args_str.encode()).hexdigest()[:16]
+
+            idempotency_key = f"{key_prefix}:{task_name}:{args_hash}"
+
+            # Obtener Redis de forma síncrona (cliente no-async)
+            try:
+                import redis
+                from app.core.config import settings
+
+                # Crear cliente Redis síncrono
+                redis_client = redis.from_url(
+                    settings.REDIS_URL,
+                    encoding="utf-8",
+                    decode_responses=True,
+                    socket_connect_timeout=5,
+                    socket_timeout=5,
+                )
+
+                # Intentar adquirir lock
+                lock_acquired = redis_client.set(
+                    idempotency_key,
+                    int(time.time()),
+                    nx=True,
+                    ex=ttl
+                )
+
+                if not lock_acquired:
+                    # Ya hay una ejecución en progreso o completada recientemente
+                    logger.info(
+                        "Idempotent task skipped (already running or completed recently)",
+                        task=task_name,
+                        key=idempotency_key
+                    )
+                    redis_client.close()
+                    return {"status": "skipped", "reason": "idempotency_lock", "task": task_name}
+
+                try:
+                    # Ejecutar tarea
+                    result = func(*args, **kwargs)
+                    redis_client.close()
+                    return result
+                except Exception as e:
+                    # Si falla, liberar el lock para permitir reintentos
+                    try:
+                        redis_client.delete(idempotency_key)
+                        redis_client.close()
+                    except Exception:
+                        pass
+                    raise
+
+            except Exception as e:
+                # Si Redis no está disponible, ejecutar sin idempotencia
+                logger.warning(
+                    "Idempotency check failed, executing task without lock",
+                    task=task_name,
+                    error=str(e)
+                )
+                return func(*args, **kwargs)
+
+        return wrapper
+    return decorator
+
+
 # Helper para FastAPI
 from fastapi import Header, HTTPException
 

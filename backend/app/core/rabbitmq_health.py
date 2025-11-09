@@ -1,11 +1,12 @@
 """
 Health check y monitoreo para RabbitMQ.
 """
-import aio_pika
-from aio_pika import connect_robust, Message
+import asyncio
 from typing import Optional
-import structlog
 from datetime import datetime
+
+from aio_pika import connect_robust, Message
+import structlog
 
 from app.core.config import settings
 from app.core.metrics import rabbitmq_connection_status
@@ -30,67 +31,70 @@ class RabbitMQHealth:
         Returns:
             dict con información del estado de RabbitMQ
         """
+        connection = None
+        channel = None
         try:
             start_time = datetime.utcnow()
-            
-            # Intentar conectar
+            timeout_seconds = 5
+
             connection = await connect_robust(
                 settings.RABBITMQ_URL,
-                client_properties={
-                    "connection_name": "health_check",
-                }
+                client_properties={"connection_name": "health_check"},
+                timeout=timeout_seconds,
             )
-            
-            # Verificar que la conexión está abierta
+
             if connection.is_closed:
                 raise ConnectionError("RabbitMQ connection is closed")
-            
-            # Obtener canal
+
             channel = await connection.channel()
-            
-            # Verificar que podemos crear una cola temporal
-            queue = await channel.declare_queue("health_check_temp", auto_delete=True, durable=False)
-            
-            # Publicar y consumir un mensaje de prueba
+
+            queue = await channel.declare_queue(
+                name="",
+                exclusive=True,
+                auto_delete=True,
+                durable=False,
+            )
+
             test_message = Message(b"health_check")
             await channel.default_exchange.publish(test_message, routing_key=queue.name)
-            
-            # Consumir el mensaje con timeout
-            async with queue.iterator() as queue_iter:
-                async for message in queue_iter:
-                    await message.ack()
-                    break
-            
-            # Cerrar recursos
-            await queue.delete()
-            await channel.close()
-            await connection.close()
-            
+
+            try:
+                message = await queue.get(timeout=timeout_seconds)
+            except asyncio.TimeoutError as exc:
+                raise TimeoutError("Timeout waiting for health check message") from exc
+
+            await message.ack()
+
             duration = (datetime.utcnow() - start_time).total_seconds()
-            
+
             self._is_healthy = True
             self._last_check = datetime.utcnow()
-            
+
             rabbitmq_connection_status.set(1)
-            
+
             return {
                 "status": "healthy",
                 "latency_ms": round(duration * 1000, 2),
                 "checked_at": self._last_check.isoformat(),
             }
-            
+
         except Exception as e:
             logger.error("RabbitMQ health check failed", error=str(e))
             self._is_healthy = False
             self._last_check = datetime.utcnow()
-            
+
             rabbitmq_connection_status.set(0)
-            
+
             return {
                 "status": "unhealthy",
                 "error": str(e),
                 "checked_at": self._last_check.isoformat(),
             }
+        finally:
+            if channel and not channel.is_closed:
+                await channel.close()
+            if connection and not connection.is_closed:
+                await connection.close()
     
     @property
     def is_healthy(self) -> bool:

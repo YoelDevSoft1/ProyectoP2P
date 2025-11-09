@@ -13,6 +13,8 @@ import redis.asyncio as aioredis
 from redis.exceptions import RedisError
 
 from app.core.config import settings
+from app.core.redis_pool import redis_pool
+from app.core.metrics import metrics
 
 logger = logging.getLogger(__name__)
 
@@ -39,30 +41,28 @@ class CacheService:
     TTL_ML_PREDICTION = 60  # Predicciones ML: 1 minuto
 
     def __init__(self):
+        """Inicializar servicio de cache usando el pool compartido de Redis"""
         self.redis: Optional[aioredis.Redis] = None
         self._redis_available = False
         self._last_health_check = datetime.utcnow()
         self._health_check_interval = timedelta(seconds=30)
 
     async def connect(self) -> bool:
-        """Conectar a Redis"""
+        """Conectar a Redis usando el pool compartido"""
         try:
+            # Usar el pool compartido de Redis en lugar de crear una nueva conexión
+            self.redis = await redis_pool.get_client()
+            
             if self.redis is None:
-                self.redis = await aioredis.from_url(
-                    settings.REDIS_URL,
-                    encoding="utf-8",
-                    decode_responses=True,
-                    socket_connect_timeout=5,
-                    socket_timeout=5,
-                    retry_on_timeout=True,
-                    max_connections=50
-                )
+                self._redis_available = False
+                logger.warning("Redis pool not available for cache service")
+                return False
 
             # Verificar conexión
             await self.redis.ping()
             self._redis_available = True
             self._last_health_check = datetime.utcnow()
-            logger.info("Redis cache connected successfully")
+            logger.info("Redis cache connected successfully using shared pool")
             return True
 
         except Exception as e:
@@ -72,18 +72,37 @@ class CacheService:
 
     async def _ensure_connected(self) -> bool:
         """Asegurar que hay conexión a Redis"""
-        # Health check periódico
-        if datetime.utcnow() - self._last_health_check > self._health_check_interval:
+        # Si no tenemos cliente, intentar obtenerlo del pool
+        if self.redis is None:
             try:
-                if self.redis:
-                    await self.redis.ping()
-                    self._redis_available = True
-                    self._last_health_check = datetime.utcnow()
-                else:
-                    await self.connect()
+                self.redis = await redis_pool.get_client()
+                if self.redis is None:
+                    self._redis_available = False
+                    return False
             except Exception:
                 self._redis_available = False
                 return False
+        
+        # Health check periódico
+        if datetime.utcnow() - self._last_health_check > self._health_check_interval:
+            try:
+                await self.redis.ping()
+                self._redis_available = True
+                self._last_health_check = datetime.utcnow()
+            except Exception:
+                self._redis_available = False
+                # Intentar reconectar
+                self.redis = await redis_pool.get_client()
+                if self.redis:
+                    try:
+                        await self.redis.ping()
+                        self._redis_available = True
+                        self._last_health_check = datetime.utcnow()
+                    except Exception:
+                        self._redis_available = False
+                        return False
+                else:
+                    return False
 
         return self._redis_available
 
@@ -98,16 +117,24 @@ class CacheService:
             Valor cacheado o None si no existe
         """
         if not await self._ensure_connected():
+            metrics.track_cache_miss(key.split(':')[0] if ':' in key else "unknown")
             return None
 
+        import time
+        start_time = time.time()
+        
         try:
             value = await self.redis.get(key)
+            duration = time.time() - start_time
+            metrics.track_redis_operation("get", duration, "success")
 
             if value is None:
                 logger.debug(f"Cache MISS: {key}")
+                metrics.track_cache_miss(key.split(':')[0] if ':' in key else "unknown")
                 return None
 
             logger.debug(f"Cache HIT: {key}")
+            metrics.track_cache_hit(key.split(':')[0] if ':' in key else "unknown")
 
             # Deserializar JSON
             try:
@@ -117,10 +144,15 @@ class CacheService:
                 return value
 
         except RedisError as e:
+            duration = time.time() - start_time
+            metrics.track_redis_operation("get", duration, "error")
             logger.warning(f"Redis GET error for key {key}: {str(e)}")
             self._redis_available = False
+            metrics.track_cache_miss(key.split(':')[0] if ':' in key else "unknown")
             return None
         except Exception as e:
+            duration = time.time() - start_time
+            metrics.track_redis_operation("get", duration, "error")
             logger.error(f"Unexpected cache GET error: {str(e)}")
             return None
 
@@ -144,6 +176,9 @@ class CacheService:
         if not await self._ensure_connected():
             return False
 
+        import time
+        start_time = time.time()
+        
         try:
             # Serializar a JSON si no es string
             if not isinstance(value, str):
@@ -154,14 +189,20 @@ class CacheService:
             else:
                 await self.redis.set(key, value)
 
+            duration = time.time() - start_time
+            metrics.track_redis_operation("set", duration, "success")
             logger.debug(f"Cache SET: {key} (TTL: {ttl}s)")
             return True
 
         except RedisError as e:
+            duration = time.time() - start_time
+            metrics.track_redis_operation("set", duration, "error")
             logger.warning(f"Redis SET error for key {key}: {str(e)}")
             self._redis_available = False
             return False
         except Exception as e:
+            duration = time.time() - start_time
+            metrics.track_redis_operation("set", duration, "error")
             logger.error(f"Unexpected cache SET error: {str(e)}")
             return False
 
@@ -340,9 +381,11 @@ class CacheService:
 
     async def close(self):
         """Cerrar conexión a Redis"""
-        if self.redis:
-            await self.redis.close()
-            logger.info("Redis cache connection closed")
+        # No cerramos el cliente ya que es compartido por el pool
+        # El pool se encargará de cerrar las conexiones cuando sea necesario
+        self.redis = None
+        self._redis_available = False
+        logger.info("Redis cache service closed (using shared pool)")
 
 
 # Singleton global

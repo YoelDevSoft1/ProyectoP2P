@@ -24,12 +24,15 @@ Este documento describe las mejoras implementadas para hacer el sistema más rob
 - ✅ Verificación de conectividad
 - ✅ Métricas de mensajes publicados/consumidos
 - ✅ Configuración de alta disponibilidad
+- ✅ Colas temporales exclusivas con timeout para health checks
+- ✅ Dead letter exchange preconfigurado para aislar mensajes en error
 
 ### 4. Celery con Monitoreo
 - ✅ Signal handlers para métricas
 - ✅ Tracking de tareas activas
 - ✅ Métricas de duración y éxito/fallo
 - ✅ Health checks de workers
+- ✅ Ruteo por colas (alta, normal, baja) con DLQ y métricas de RabbitMQ
 
 ### 5. Prometheus Metrics
 - ✅ Métricas de HTTP requests

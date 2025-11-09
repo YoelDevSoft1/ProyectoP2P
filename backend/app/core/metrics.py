@@ -136,6 +136,32 @@ redis_connection_errors_total = Counter(
     'Total Redis connection errors'
 )
 
+# Redis Memory Metrics
+redis_memory_used = Gauge(
+    'redis_memory_used_bytes',
+    'Redis memory used in bytes'
+)
+
+redis_memory_peak = Gauge(
+    'redis_memory_peak_bytes',
+    'Redis memory peak in bytes'
+)
+
+redis_memory_fragmentation_ratio = Gauge(
+    'redis_memory_fragmentation_ratio',
+    'Redis memory fragmentation ratio'
+)
+
+redis_connected_clients = Gauge(
+    'redis_connected_clients',
+    'Number of connected clients to Redis'
+)
+
+redis_evicted_keys_total = Counter(
+    'redis_evicted_keys_total',
+    'Total evicted keys from Redis'
+)
+
 # Celery
 celery_tasks_total = Counter(
     'celery_tasks_total',

@@ -7,9 +7,12 @@ from datetime import datetime, timedelta
 import structlog
 import asyncio
 from typing import Callable, Any, List, Dict
+from requests.exceptions import RequestException, Timeout, ConnectionError as RequestsConnectionError
+from httpx import TimeoutException, ConnectError
 
 from app.core.database import SessionLocal
 from app.core.config import settings
+from app.core.idempotency import idempotent_celery_task
 from app.models.price_history import PriceHistory
 from app.models.alert import Alert, AlertType, AlertPriority
 from app.services.binance_service import BinanceService
@@ -53,10 +56,32 @@ def run_async_task_safe(coro: Callable[..., Any], *args, **kwargs) -> Any:
             raise
 
 
-@celery_app.task(name="celery_app.tasks.update_prices")
+@celery_app.task(
+    name="celery_app.tasks.update_prices",
+    autoretry_for=(
+        RequestsConnectionError,
+        RequestException,
+        Timeout,
+        TimeoutException,
+        ConnectError,
+        ConnectionError,
+    ),
+    retry_kwargs={'max_retries': 3, 'countdown': 5},
+    retry_backoff=True,
+    retry_backoff_max=60,
+    retry_jitter=True,
+    acks_late=True,
+    reject_on_worker_lost=True,
+)
 def update_prices():
     """
     Actualizar precios de P2P y guardar en base de datos.
+
+    Retry automático:
+    - Máximo 3 reintentos
+    - Espera inicial: 5 segundos
+    - Backoff exponencial hasta 60 segundos
+    - Jitter para evitar thundering herd
     """
     db = get_db()
     try:
@@ -272,10 +297,27 @@ def update_prices():
         db.close()
 
 
-@celery_app.task(name="celery_app.tasks.update_trm")
+@celery_app.task(
+    name="celery_app.tasks.update_trm",
+    autoretry_for=(
+        RequestsConnectionError,
+        RequestException,
+        Timeout,
+        TimeoutException,
+        ConnectError,
+        ConnectionError,
+    ),
+    retry_kwargs={'max_retries': 3, 'countdown': 10},
+    retry_backoff=True,
+    retry_backoff_max=120,
+    retry_jitter=True,
+    acks_late=True,
+)
 def update_trm():
     """
     Actualizar TRM desde la API del gobierno.
+
+    Retry automático con backoff exponencial.
     """
     try:
         trm_service = TRMService()
@@ -293,11 +335,30 @@ def update_trm():
         return {"status": "error", "error": str(e)}
 
 
-@celery_app.task(name="celery_app.tasks.analyze_spread_opportunities")
+@celery_app.task(
+    name="celery_app.tasks.analyze_spread_opportunities",
+    autoretry_for=(
+        RequestsConnectionError,
+        RequestException,
+        Timeout,
+        TimeoutException,
+        ConnectError,
+        ConnectionError,
+    ),
+    retry_kwargs={'max_retries': 2, 'countdown': 15},
+    retry_backoff=True,
+    retry_backoff_max=60,
+    retry_jitter=True,
+    acks_late=True,
+)
+@idempotent_celery_task(ttl=55, key_prefix="spread_analysis")  # TTL < intervalo (60s)
 def analyze_spread_opportunities():
     """
     Analizar spreads y detectar oportunidades de arbitraje.
     Crear alertas si se encuentran oportunidades.
+
+    Retry automático con backoff (máx 2 reintentos para evitar duplicados).
+    IDEMPOTENTE: TTL de 55 segundos previene ejecuciones duplicadas.
     """
     db = get_db()
     try:
@@ -523,11 +584,29 @@ def analyze_spread_opportunities():
         db.close()
 
 
-@celery_app.task(name="celery_app.tasks.run_trading_bot")
+@celery_app.task(
+    name="celery_app.tasks.run_trading_bot",
+    autoretry_for=(
+        RequestsConnectionError,
+        RequestException,
+        Timeout,
+        TimeoutException,
+        ConnectError,
+        ConnectionError,
+    ),
+    retry_kwargs={'max_retries': 1, 'countdown': 20},
+    retry_backoff=False,  # No backoff para trading bot (tiempo crítico)
+    acks_late=True,
+    reject_on_worker_lost=True,
+)
+@idempotent_celery_task(ttl=55, key_prefix="trading_bot")  # TTL < intervalo (60s)
 def run_trading_bot():
     """
     Ejecutar lógica del bot de trading.
     Solo ejecuta si está en modo automático o híbrido.
+
+    Retry limitado (1 solo reintento) para evitar ejecuciones duplicadas.
+    IDEMPOTENTE: CRÍTICO para prevenir trades duplicados (TTL 55s).
     """
     if settings.TRADING_MODE == "manual":
         logger.info("Trading bot skipped - manual mode enabled")
@@ -549,10 +628,20 @@ def run_trading_bot():
         return {"status": "error", "error": str(e)}
 
 
-@celery_app.task(name="celery_app.tasks.retrain_ml_model")
+@celery_app.task(
+    name="celery_app.tasks.retrain_ml_model",
+    autoretry_for=(ConnectionError,),
+    retry_kwargs={'max_retries': 1, 'countdown': 300},  # 5 minutos de espera
+    acks_late=True,
+    time_limit=3600,  # 1 hora límite para ML training
+    soft_time_limit=3300,  # 55 minutos soft limit
+)
 def retrain_ml_model():
     """
     Re-entrenar modelo de ML con datos recientes.
+
+    Timeout extendido: 1 hora (tarea pesada).
+    Retry limitado con 5 minutos de espera.
     """
     db = get_db()
     try:
@@ -571,12 +660,21 @@ def retrain_ml_model():
         db.close()
 
 
-@celery_app.task(name="celery_app.tasks.cleanup_old_data")
+@celery_app.task(
+    name="celery_app.tasks.cleanup_old_data",
+    autoretry_for=(ConnectionError,),
+    retry_kwargs={'max_retries': 2, 'countdown': 600},  # 10 minutos de espera
+    acks_late=True,
+    time_limit=1800,  # 30 minutos límite
+    soft_time_limit=1500,  # 25 minutos soft limit
+)
 def cleanup_old_data():
     """
     Limpiar datos antiguos de la base de datos.
     - Alertas leídas mayores a 30 días
     - Price history mayor a 90 días
+
+    Timeout extendido: 30 minutos (puede ser operación pesada).
     """
     db = get_db()
     try:
@@ -616,7 +714,22 @@ def cleanup_old_data():
         db.close()
 
 
-@celery_app.task(name="celery_app.tasks.send_notification")
+@celery_app.task(
+    name="celery_app.tasks.send_notification",
+    autoretry_for=(
+        RequestsConnectionError,
+        RequestException,
+        Timeout,
+        TimeoutException,
+        ConnectError,
+        ConnectionError,
+    ),
+    retry_kwargs={'max_retries': 3, 'countdown': 30},
+    retry_backoff=True,
+    retry_backoff_max=300,  # Máx 5 minutos
+    retry_jitter=True,
+    acks_late=True,
+)
 def send_notification(title: str, message: str, priority: str = "medium"):
     """
     Enviar notificación por Telegram o email.
@@ -625,6 +738,8 @@ def send_notification(title: str, message: str, priority: str = "medium"):
         title: Título de la notificación
         message: Mensaje
         priority: low, medium, high, critical
+
+    Retry automático agresivo (3 reintentos) para asegurar entrega.
     """
     if not settings.ENABLE_NOTIFICATIONS:
         return {"status": "skipped", "reason": "notifications_disabled"}
@@ -641,11 +756,30 @@ def send_notification(title: str, message: str, priority: str = "medium"):
         return {"status": "error", "error": str(e)}
 
 
-@celery_app.task(name="celery_app.tasks.analyze_arbitrage")
+@celery_app.task(
+    name="celery_app.tasks.analyze_arbitrage",
+    autoretry_for=(
+        RequestsConnectionError,
+        RequestException,
+        Timeout,
+        TimeoutException,
+        ConnectError,
+        ConnectionError,
+    ),
+    retry_kwargs={'max_retries': 2, 'countdown': 20},
+    retry_backoff=True,
+    retry_backoff_max=90,
+    retry_jitter=True,
+    acks_late=True,
+)
+@idempotent_celery_task(ttl=110, key_prefix="arbitrage_analysis")  # TTL < intervalo (120s)
 def analyze_arbitrage():
     """
     Analizar oportunidades de arbitraje Spot-P2P.
     Enviar alertas si hay oportunidades rentables.
+
+    Retry automático (máx 2 reintentos para evitar alertas duplicadas).
+    IDEMPOTENTE: TTL de 110 segundos previene alertas duplicadas.
     """
     db = get_db()
     try:

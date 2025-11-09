@@ -19,8 +19,8 @@ const axiosInstance = axios.create({
 
 // Interceptor para logging (opcional)
 axiosInstance.interceptors.response.use(
-  (response) => response,
-  (error) => {
+  (response: any) => response,
+  (error: any) => {
     console.error('API Error:', error.response?.data || error.message)
     return Promise.reject(error)
   }
@@ -182,6 +182,450 @@ const api = {
 
   markAlertAsRead: async (alertId: number) => {
     const { data } = await axiosInstance.post(`/analytics/alerts/${alertId}/read`)
+    return data
+  },
+
+  // Analytics - Triangle Arbitrage
+  analyzeTriangleArbitrage: async (initialAmount = 200000) => {
+    const { data } = await axiosInstance.get('/analytics/triangle-arbitrage/analyze', {
+      params: { initial_amount: initialAmount },
+    })
+    return data
+  },
+
+  findTriangleRoutes: async (assets = ['USDT', 'BTC'], fiats = ['COP', 'VES']) => {
+    const { data } = await axiosInstance.get('/analytics/triangle-arbitrage/find-all-routes', {
+      params: { assets, fiats },
+    })
+    return data
+  },
+
+  getOptimalTriangleStrategy: async () => {
+    const { data } = await axiosInstance.get('/analytics/triangle-arbitrage/optimal-strategy')
+    return data
+  },
+
+  // Analytics - Liquidity
+  analyzeMarketDepth: async (asset = 'USDT', fiat = 'COP', depthLevels = 20) => {
+    const { data } = await axiosInstance.get('/analytics/liquidity/market-depth', {
+      params: { asset, fiat, depth_levels: depthLevels },
+    })
+    return data
+  },
+
+  detectMarketMakers: async (asset = 'USDT', fiat = 'COP') => {
+    const { data } = await axiosInstance.get('/analytics/liquidity/detect-market-makers', {
+      params: { asset, fiat },
+    })
+    return data
+  },
+
+  estimateSlippage: async (asset = 'USDT', fiat = 'COP', tradeType = 'BUY', targetAmountUsd = 1000) => {
+    const { data } = await axiosInstance.get('/analytics/liquidity/slippage-estimate', {
+      params: { asset, fiat, trade_type: tradeType, target_amount_usd: targetAmountUsd },
+    })
+    return data
+  },
+
+  // Analytics - ML
+  predictSpread: async (asset = 'USDT', fiat = 'COP', horizonMinutes = 10) => {
+    const { data } = await axiosInstance.get('/analytics/ml/predict-spread', {
+      params: { asset, fiat, horizon_minutes: horizonMinutes },
+    })
+    return data
+  },
+
+  classifyOpportunity: async (opportunityData: any) => {
+    const { data } = await axiosInstance.post('/analytics/ml/classify-opportunity', opportunityData)
+    return data
+  },
+
+  predictOptimalTiming: async (asset = 'USDT', fiat = 'COP') => {
+    const { data } = await axiosInstance.get('/analytics/ml/optimal-timing', {
+      params: { asset, fiat },
+    })
+    return data
+  },
+
+  // Analytics - Risk
+  calculateVaR: async (returns: number[], confidenceLevel = 0.95, timeHorizonDays = 1) => {
+    const { data } = await axiosInstance.post('/analytics/risk/calculate-var', {
+      returns,
+      confidence_level: confidenceLevel,
+      time_horizon_days: timeHorizonDays,
+    })
+    return data
+  },
+
+  calculateSharpe: async (returns: number[], riskFreeRate?: number) => {
+    const { data } = await axiosInstance.post('/analytics/risk/calculate-sharpe', {
+      returns,
+      risk_free_rate: riskFreeRate,
+    })
+    return data
+  },
+
+  calculateSortino: async (returns: number[], targetReturn = 0.0) => {
+    const { data } = await axiosInstance.post('/analytics/risk/calculate-sortino', {
+      returns,
+      target_return: targetReturn,
+    })
+    return data
+  },
+
+  calculateDrawdown: async (equityCurve: number[]) => {
+    const { data } = await axiosInstance.post('/analytics/risk/calculate-drawdown', {
+      equity_curve: equityCurve,
+    })
+    return data
+  },
+
+  calculateTradingMetrics: async (trades: any[]) => {
+    const { data } = await axiosInstance.post('/analytics/risk/trading-metrics', { trades })
+    return data
+  },
+
+  calculateKellyCriterion: async (winRate: number, avgWin: number, avgLoss: number) => {
+    const { data } = await axiosInstance.get('/analytics/risk/kelly-criterion', {
+      params: { win_rate: winRate, avg_win: avgWin, avg_loss: avgLoss },
+    })
+    return data
+  },
+
+  comprehensiveRiskAssessment: async (
+    returns: number[],
+    equityCurve: number[],
+    trades: any[],
+    currentPositionSize: number,
+    totalCapital: number
+  ) => {
+    const { data } = await axiosInstance.post('/analytics/risk/comprehensive-assessment', {
+      returns,
+      equity_curve: equityCurve,
+      trades,
+      current_position_size: currentPositionSize,
+      total_capital: totalCapital,
+    })
+    return data
+  },
+
+  // Analytics - Advanced Summary
+  getAdvancedSummary: async () => {
+    const { data } = await axiosInstance.get('/analytics/advanced-summary')
+    return data
+  },
+
+  getTopOpportunities: async (limit = 10) => {
+    const { data } = await axiosInstance.get('/analytics/top-opportunities', {
+      params: { limit },
+    })
+    return data
+  },
+
+  // Analytics - Pricing
+  getMarketTRM: async (asset = 'USDT', fiat = 'COP', sampleSize = 20) => {
+    const { data } = await axiosInstance.get('/analytics/pricing/market-trm', {
+      params: { asset, fiat, sample_size: sampleSize },
+    })
+    return data
+  },
+
+  getCompetitivePrices: async (asset = 'USDT', fiat = 'COP', ourMarginPct?: number) => {
+    const params: any = { asset, fiat }
+    if (ourMarginPct !== undefined) params.our_margin_pct = ourMarginPct
+    const { data } = await axiosInstance.get('/analytics/pricing/competitive-prices', { params })
+    return data
+  },
+
+  getPricingStrategySummary: async (asset = 'USDT', fiat = 'COP') => {
+    const { data } = await axiosInstance.get('/analytics/pricing/strategy-summary', {
+      params: { asset, fiat },
+    })
+    return data
+  },
+
+  // Spot Trading
+  getSpotBalance: async (asset = 'USDT') => {
+    const { data } = await axiosInstance.get('/spot/balance', {
+      params: { asset },
+    })
+    return data
+  },
+
+  getSpotBalances: async () => {
+    const { data } = await axiosInstance.get('/spot/balances')
+    return data
+  },
+
+  getSpotPrice: async (symbol: string) => {
+    const { data } = await axiosInstance.get(`/spot/price/${symbol}`)
+    return data
+  },
+
+  getSpotTicker: async (symbol: string) => {
+    const { data } = await axiosInstance.get(`/spot/ticker/${symbol}`)
+    return data
+  },
+
+  createMarketOrder: async (symbol: string, side: string, quantity: number) => {
+    const { data } = await axiosInstance.post('/spot/order/market', {
+      symbol,
+      side,
+      quantity,
+    })
+    return data
+  },
+
+  createLimitOrder: async (symbol: string, side: string, quantity: number, price: number) => {
+    const { data } = await axiosInstance.post('/spot/order/limit', {
+      symbol,
+      side,
+      quantity,
+      price,
+    })
+    return data
+  },
+
+  getOpenOrders: async (symbol?: string) => {
+    const params: any = {}
+    if (symbol) params.symbol = symbol
+    const { data } = await axiosInstance.get('/spot/orders/open', { params })
+    return data
+  },
+
+  cancelOrder: async (symbol: string, orderId: string) => {
+    const { data } = await axiosInstance.delete(`/spot/order/${symbol}/${orderId}`)
+    return data
+  },
+
+  getOrder: async (symbol: string, orderId: string) => {
+    const { data } = await axiosInstance.get(`/spot/order/${symbol}/${orderId}`)
+    return data
+  },
+
+  getSymbolInfo: async (symbol: string) => {
+    const { data } = await axiosInstance.get(`/spot/symbol/${symbol}`)
+    return data
+  },
+
+  // Advanced Arbitrage
+  scanOpportunities: async (minReturn = 1.0, maxRisk = 70.0, capital = 10000.0) => {
+    const { data } = await axiosInstance.get('/advanced-arbitrage/scan', {
+      params: { min_return: minReturn, max_risk: maxRisk, capital },
+    })
+    return data
+  },
+
+  getBestOpportunity: async (rankingMethod = 'risk_adjusted') => {
+    const { data } = await axiosInstance.get('/advanced-arbitrage/best', {
+      params: { ranking_method: rankingMethod },
+    })
+    return data
+  },
+
+  getArbitragePortfolio: async () => {
+    const { data } = await axiosInstance.get('/advanced-arbitrage/portfolio')
+    return data
+  },
+
+  compareStrategies: async () => {
+    const { data } = await axiosInstance.get('/advanced-arbitrage/compare-strategies')
+    return data
+  },
+
+  // Funding Rate
+  getFundingRateOpportunities: async () => {
+    const { data } = await axiosInstance.get('/advanced-arbitrage/funding-rate/opportunities')
+    return data
+  },
+
+  getBestFundingRate: async () => {
+    const { data } = await axiosInstance.get('/advanced-arbitrage/funding-rate/best')
+    return data
+  },
+
+  getFundingRateHistory: async (symbol: string) => {
+    const { data } = await axiosInstance.get(`/advanced-arbitrage/funding-rate/historical/${symbol}`)
+    return data
+  },
+
+  // Statistical
+  getStatisticalSignals: async () => {
+    const { data } = await axiosInstance.get('/advanced-arbitrage/statistical/signals')
+    return data
+  },
+
+  getStatisticalPair: async (symbol1: string, symbol2: string) => {
+    const { data } = await axiosInstance.get(`/advanced-arbitrage/statistical/pair/${symbol1}/${symbol2}`)
+    return data
+  },
+
+  // Delta Neutral
+  getDeltaNeutralOpportunities: async () => {
+    const { data } = await axiosInstance.get('/advanced-arbitrage/delta-neutral/opportunities')
+    return data
+  },
+
+  getOptimalHolding: async (symbol: string) => {
+    const { data } = await axiosInstance.get(`/advanced-arbitrage/delta-neutral/optimal-holding/${symbol}`)
+    return data
+  },
+
+  // Triangle
+  getTrianglePaths: async () => {
+    const { data } = await axiosInstance.get('/advanced-arbitrage/triangle/paths')
+    return data
+  },
+
+  getOptimalTriangle: async () => {
+    const { data } = await axiosInstance.get('/advanced-arbitrage/triangle/optimal')
+    return data
+  },
+
+  compareTriangles: async (triangleData: any) => {
+    const { data } = await axiosInstance.post('/advanced-arbitrage/triangle/compare', triangleData)
+    return data
+  },
+
+  // Dynamic Pricing
+  calculateDynamicPrice: async (
+    asset = 'USDT',
+    fiat = 'COP',
+    tradeType = 'SELL',
+    amountUsd = 1000.0,
+    baseMargin?: number
+  ) => {
+    const params: any = { asset, fiat, trade_type: tradeType, amount_usd: amountUsd }
+    if (baseMargin !== undefined) params.base_margin = baseMargin
+    const { data } = await axiosInstance.get('/dynamic-pricing/calculate', { params })
+    return data
+  },
+
+  getPricingSummary: async (asset = 'USDT', fiat = 'COP') => {
+    const { data } = await axiosInstance.get('/dynamic-pricing/summary', {
+      params: { asset, fiat },
+    })
+    return data
+  },
+
+  // Market Making
+  startMarketMaking: async (asset = 'USDT', fiat = 'COP', updateIntervalSeconds = 30) => {
+    const { data } = await axiosInstance.post('/market-making/start', null, {
+      params: { asset, fiat, update_interval_seconds: updateIntervalSeconds },
+    })
+    return data
+  },
+
+  updateMarketMaking: async (asset = 'USDT', fiat = 'COP') => {
+    const { data } = await axiosInstance.post('/market-making/update', null, {
+      params: { asset, fiat },
+    })
+    return data
+  },
+
+  stopMarketMaking: async (asset = 'USDT', fiat = 'COP') => {
+    const { data } = await axiosInstance.post('/market-making/stop', null, {
+      params: { asset, fiat },
+    })
+    return data
+  },
+
+  getMarketMakingStatus: async (asset = 'USDT', fiat = 'COP') => {
+    const { data } = await axiosInstance.get('/market-making/status', {
+      params: { asset, fiat },
+    })
+    return data
+  },
+
+  getAllMarketMaking: async () => {
+    const { data } = await axiosInstance.get('/market-making/all')
+    return data
+  },
+
+  // Order Execution
+  executeTWAP: async (
+    asset = 'USDT',
+    fiat = 'COP',
+    tradeType = 'SELL',
+    totalAmountUsd: number,
+    durationMinutes = 30,
+    chunks = 10
+  ) => {
+    const { data } = await axiosInstance.post('/order-execution/twap', null, {
+      params: {
+        asset,
+        fiat,
+        trade_type: tradeType,
+        total_amount_usd: totalAmountUsd,
+        duration_minutes: durationMinutes,
+        chunks,
+      },
+    })
+    return data
+  },
+
+  executeVWAP: async (
+    asset = 'USDT',
+    fiat = 'COP',
+    tradeType = 'SELL',
+    totalAmountUsd: number,
+    durationMinutes = 30
+  ) => {
+    const { data } = await axiosInstance.post('/order-execution/vwap', null, {
+      params: {
+        asset,
+        fiat,
+        trade_type: tradeType,
+        total_amount_usd: totalAmountUsd,
+        duration_minutes: durationMinutes,
+      },
+    })
+    return data
+  },
+
+  executeIceberg: async (
+    asset = 'USDT',
+    fiat = 'COP',
+    tradeType = 'SELL',
+    totalAmountUsd: number,
+    visibleSizeUsd = 1000.0,
+    refreshIntervalSeconds = 60
+  ) => {
+    const { data } = await axiosInstance.post('/order-execution/iceberg', null, {
+      params: {
+        asset,
+        fiat,
+        trade_type: tradeType,
+        total_amount_usd: totalAmountUsd,
+        visible_size_usd: visibleSizeUsd,
+        refresh_interval_seconds: refreshIntervalSeconds,
+      },
+    })
+    return data
+  },
+
+  smartOrderRouting: async (
+    asset = 'USDT',
+    fiat = 'COP',
+    tradeType = 'SELL',
+    amountUsd: number,
+    exchanges = 'binance_p2p'
+  ) => {
+    const { data } = await axiosInstance.post('/order-execution/smart-routing', null, {
+      params: {
+        asset,
+        fiat,
+        trade_type: tradeType,
+        amount_usd: amountUsd,
+        exchanges,
+      },
+    })
+    return data
+  },
+
+  // List Endpoints
+  listEndpoints: async () => {
+    const { data } = await axiosInstance.get('/health/endpoints')
     return data
   },
 }

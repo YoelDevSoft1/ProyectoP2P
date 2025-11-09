@@ -1,7 +1,6 @@
 """
 Monitoreo y health checks para Celery.
 """
-from celery import current_app
 from celery.result import AsyncResult
 from typing import Optional, Dict, Any
 import structlog
@@ -16,20 +15,35 @@ class CeleryMonitor:
     """
     Monitor para verificar estado de Celery workers y tasks.
     """
-    
+
     def __init__(self):
         self._last_check: Optional[datetime] = None
-    
+        self._celery_app = None
+
+    def _get_celery_app(self):
+        """Lazy load de la app de Celery para evitar imports circulares"""
+        if self._celery_app is None:
+            try:
+                from celery_app.worker import celery_app
+                self._celery_app = celery_app
+            except Exception as e:
+                logger.warning("Failed to import celery_app", error=str(e))
+                # Fallback a current_app si no se puede importar
+                from celery import current_app
+                self._celery_app = current_app
+        return self._celery_app
+
     def check_health(self) -> dict:
         """
         Verificar salud de Celery.
-        
+
         Returns:
             dict con información del estado de Celery
         """
         try:
             # Obtener inspect para workers activos
-            inspect = current_app.control.inspect()
+            app = self._get_celery_app()
+            inspect = app.control.inspect(timeout=2.0)
             
             # Verificar workers activos (sin timeout, la API de Celery lo maneja internamente)
             active_workers = inspect.active() or {}
@@ -77,15 +91,16 @@ class CeleryMonitor:
     def get_task_status(self, task_id: str) -> Dict[str, Any]:
         """
         Obtener estado de una tarea específica.
-        
+
         Args:
             task_id: ID de la tarea
-            
+
         Returns:
             dict con información de la tarea
         """
         try:
-            result = AsyncResult(task_id, app=current_app)
+            app = self._get_celery_app()
+            result = AsyncResult(task_id, app=app)
             
             return {
                 "task_id": task_id,

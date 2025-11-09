@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
-import { Calculator, ArrowRightLeft, TrendingUp, TrendingDown, Send, Copy, Check } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Calculator, ArrowRightLeft, TrendingUp, Send, Copy, Check } from 'lucide-react'
 import { PriceData, Currency, TradeDirection } from '@/types/prices'
 
 interface CurrencyCalculatorProps {
@@ -13,6 +13,26 @@ interface CurrencyCalculatorProps {
 }
 
 type Direction = TradeDirection
+
+type FiatCurrency = Exclude<Currency, 'USDT'>
+
+interface ConversionStep {
+  from: Currency
+  to: Currency
+  rate: number
+  priceType: 'buy' | 'sell'
+  data: PriceData
+}
+
+interface ConversionResult {
+  total: number
+  originalAmount: number
+  steps: ConversionStep[]
+  feePercentage: number
+}
+
+const isFiatCurrency = (currency: Currency): currency is FiatCurrency =>
+  currency === 'COP' || currency === 'VES'
 
 export function CurrencyCalculator({
   copData,
@@ -27,87 +47,91 @@ export function CurrencyCalculator({
   const [direction, setDirection] = useState<Direction>('sell')
   const [copied, setCopied] = useState(false)
 
-  // Calcular resultado
-  const result = useMemo(() => {
-    if (!amount || parseFloat(amount) <= 0) return null
-
-    const amountNum = parseFloat(amount)
-    let calculatedAmount = 0
-    let fee = 0
-    let feePercentage = 0
-
-    if (direction === 'sell') {
-      // Cliente vende COP/VES, recibe USDT
-      if (fromCurrency === 'COP' && copData) {
-        // Precio de compra (nosotros compramos COP)
-        calculatedAmount = amountNum / copData.buy_price
-        fee = amountNum * (copData.margin / 100)
-        feePercentage = copData.margin
-      } else if (fromCurrency === 'VES' && vesData) {
-        calculatedAmount = amountNum / vesData.buy_price
-        fee = amountNum * (vesData.margin / 100)
-        feePercentage = vesData.margin
-      } else if (fromCurrency === 'USDT') {
-        // Cliente vende USDT, recibe COP/VES
-        if (toCurrency === 'COP' && copData) {
-          calculatedAmount = amountNum * copData.sell_price
-          fee = calculatedAmount * (copData.margin / 100)
-          feePercentage = copData.margin
-        } else if (toCurrency === 'VES' && vesData) {
-          calculatedAmount = amountNum * vesData.sell_price
-          fee = calculatedAmount * (vesData.margin / 100)
-          feePercentage = vesData.margin
-        }
-      }
-    } else {
-      // Cliente compra USDT con COP/VES
-      if (fromCurrency === 'COP' && copData) {
-        calculatedAmount = amountNum / copData.sell_price
-        fee = amountNum * (copData.margin / 100)
-        feePercentage = copData.margin
-      } else if (fromCurrency === 'VES' && vesData) {
-        calculatedAmount = amountNum / vesData.sell_price
-        fee = amountNum * (vesData.margin / 100)
-        feePercentage = vesData.margin
-      }
+  const requiredFiats = useMemo(() => {
+    const needed: FiatCurrency[] = []
+    if (isFiatCurrency(fromCurrency)) {
+      needed.push(fromCurrency)
     }
-
-    return {
-      amount: calculatedAmount,
-      fee,
-      feePercentage,
-      total: direction === 'sell' && fromCurrency !== 'USDT' 
-        ? calculatedAmount 
-        : calculatedAmount - fee,
+    if (isFiatCurrency(toCurrency) && !needed.includes(toCurrency)) {
+      needed.push(toCurrency)
     }
-  }, [amount, fromCurrency, toCurrency, direction, copData, vesData])
-
-  // Auto-cambiar dirección cuando se cambian las monedas
-  useEffect(() => {
-    // Si ambas monedas son USDT, cambiar una de ellas
-    if (fromCurrency === 'USDT' && toCurrency === 'USDT') {
-      setFromCurrency('COP')
-      setDirection('sell')
-      return
-    }
-    
-    // Si fromCurrency es USDT, el usuario está vendiendo USDT (recibe COP/VES)
-    if (fromCurrency === 'USDT') {
-      setDirection('sell')
-    } 
-    // Si toCurrency es USDT, el usuario está comprando USDT (paga COP/VES)
-    else if (toCurrency === 'USDT') {
-      setDirection('buy')
-    }
+    return needed
   }, [fromCurrency, toCurrency])
 
-  const formatCurrency = (value: number, currency: Currency) => {
-    if (currency === 'USDT') {
-      return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })
-    } else if (currency === 'COP') {
-      return value.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+  const missingData = useMemo(() => {
+    return requiredFiats.filter((currency) => {
+      if (currency === 'COP') return !copData
+      if (currency === 'VES') return !vesData
+      return false
+    })
+  }, [requiredFiats, copData, vesData])
+
+  // Calcular resultado
+  const result = useMemo<ConversionResult | null>(() => {
+    if (!amount) return null
+    const amountNum = parseFloat(amount)
+    if (!Number.isFinite(amountNum) || amountNum <= 0) return null
+    if (missingData.length > 0) return null
+
+    const steps: ConversionStep[] = []
+    let total = amountNum
+
+    const getFiatData = (currency: FiatCurrency) => (currency === 'COP' ? copData : vesData)
+
+    const convertUsdtToFiat = (currency: FiatCurrency) => {
+      const data = getFiatData(currency)
+      if (!data || data.buy_price <= 0) return false
+      total = total * data.buy_price
+      steps.push({ from: 'USDT', to: currency, rate: data.buy_price, priceType: 'buy', data })
+      return true
+    }
+
+    const convertFiatToUsdt = (currency: FiatCurrency) => {
+      const data = getFiatData(currency)
+      if (!data || data.sell_price <= 0) return false
+      total = total / data.sell_price
+      steps.push({ from: currency, to: 'USDT', rate: data.sell_price, priceType: 'sell', data })
+      return true
+    }
+
+    if (fromCurrency === toCurrency) {
+      return {
+        total,
+        originalAmount: amountNum,
+        steps,
+        feePercentage: 0,
+      }
+    }
+
+    if (fromCurrency === 'USDT' && isFiatCurrency(toCurrency)) {
+      if (!convertUsdtToFiat(toCurrency)) return null
+    } else if (isFiatCurrency(fromCurrency) && toCurrency === 'USDT') {
+      if (!convertFiatToUsdt(fromCurrency)) return null
+    } else if (isFiatCurrency(fromCurrency) && isFiatCurrency(toCurrency)) {
+      if (!convertFiatToUsdt(fromCurrency)) return null
+      if (!convertUsdtToFiat(toCurrency)) return null
     } else {
-      return value.toLocaleString('es-VE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+      return null
+    }
+
+    const feePercentage = steps.reduce((acc, step) => acc + (step.data.margin ?? 0), 0)
+
+    return {
+      total,
+      originalAmount: amountNum,
+      steps,
+      feePercentage,
+    }
+  }, [amount, fromCurrency, toCurrency, copData, vesData, missingData.length])
+
+  const formatCurrency = (value: number, currency: Currency) => {
+    // Sin decimales para todos los resultados
+    if (currency === 'USDT') {
+      return Math.round(value).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+    } else if (currency === 'COP') {
+      return Math.round(value).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+    } else {
+      return Math.round(value).toLocaleString('es-VE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
     }
   }
 
@@ -116,6 +140,29 @@ export function CurrencyCalculator({
     if (currency === 'COP') return '$'
     return 'Bs.'
   }
+
+  const rateDetails = useMemo(() => {
+    if (!result?.steps.length) return []
+
+    return result.steps
+      .map((step, index) => {
+        const fiatCurrency = step.priceType === 'buy' ? step.to : step.from
+        if (!isFiatCurrency(fiatCurrency)) return null
+
+        const label = step.priceType === 'buy'
+          ? `Precio de compra ${fiatCurrency}`
+          : `Precio de venta ${fiatCurrency}`
+
+        const formattedValue = `1 USDT = ${getCurrencySymbol(fiatCurrency)} ${formatCurrency(step.rate, fiatCurrency)} ${fiatCurrency}`
+
+        return {
+          key: `${fiatCurrency}-${step.priceType}-${index}`,
+          label,
+          value: formattedValue,
+        }
+      })
+      .filter((detail): detail is { key: string; label: string; value: string } => Boolean(detail))
+  }, [result])
 
   const handleCopy = () => {
     if (!result) return
@@ -131,8 +178,31 @@ export function CurrencyCalculator({
     window.open(`${whatsappLink.split('?')[0]}?text=${encodeURIComponent(message)}`, '_blank')
   }
 
-  const currentData = fromCurrency === 'COP' ? copData : fromCurrency === 'VES' ? vesData : null
-  const isPositive = result && result.amount > 0
+  const handleDirectionChange = (newDirection: Direction) => {
+    setDirection(newDirection)
+
+    if (newDirection === 'sell') {
+      if (fromCurrency !== 'USDT') {
+        setFromCurrency('USDT')
+      }
+      if (toCurrency === 'USDT') {
+        setToCurrency(isFiatCurrency(fromCurrency) ? fromCurrency : 'COP')
+      }
+    } else {
+      if (toCurrency !== 'USDT') {
+        setToCurrency('USDT')
+      }
+      if (fromCurrency === 'USDT') {
+        setFromCurrency('COP')
+      }
+    }
+  }
+
+  const isPositive = (result?.total ?? 0) > 0
+  const parsedAmount = parseFloat(amount)
+  const hasAmount = Number.isFinite(parsedAmount) && parsedAmount > 0
+  const trmValue = typeof trm === 'number' ? trm : null
+  const showTrm = trmValue !== null && requiredFiats.includes('COP')
 
   return (
     <div className="bg-gradient-to-br from-gray-800 via-gray-800 to-gray-900 rounded-2xl p-8 border border-gray-700 shadow-2xl">
@@ -150,24 +220,24 @@ export function CurrencyCalculator({
       <div className="mb-6">
         <div className="flex gap-2 p-1 bg-gray-700/50 rounded-lg">
           <button
-            onClick={() => setDirection('sell')}
+            onClick={() => handleDirectionChange('sell')}
             className={`flex-1 px-4 py-2 rounded-md font-medium transition-all ${
               direction === 'sell'
                 ? 'bg-primary-600 text-white shadow-lg'
                 : 'text-gray-400 hover:text-white'
             }`}
           >
-            Vender {fromCurrency !== 'USDT' ? fromCurrency : toCurrency}
+            Vender USDT
           </button>
           <button
-            onClick={() => setDirection('buy')}
+            onClick={() => handleDirectionChange('buy')}
             className={`flex-1 px-4 py-2 rounded-md font-medium transition-all ${
               direction === 'buy'
                 ? 'bg-primary-600 text-white shadow-lg'
                 : 'text-gray-400 hover:text-white'
             }`}
           >
-            Comprar {toCurrency === 'USDT' ? 'USDT' : toCurrency}
+            Comprar USDT
           </button>
         </div>
       </div>
@@ -257,28 +327,28 @@ export function CurrencyCalculator({
       </div>
 
       {/* Información de comisión */}
-      {result && result.total > 0 && currentData && (
+      {result && result.total > 0 && rateDetails.length > 0 && (
         <div className="mb-6 p-4 bg-gray-700/30 rounded-lg border border-gray-600">
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between text-gray-400">
-              <span>Comisión ({result.feePercentage.toFixed(2)}%)</span>
-              <span className="text-white font-medium">
-                {getCurrencySymbol(fromCurrency)}{formatCurrency(result.fee, fromCurrency)}
-              </span>
-            </div>
-            <div className="flex justify-between text-gray-400">
-              <span>Tasa de cambio</span>
-              <span className="text-white font-medium">
-                {direction === 'sell' && fromCurrency !== 'USDT'
-                  ? `1 ${fromCurrency} = ${(1 / currentData.buy_price).toFixed(6)} USDT`
-                  : `1 USDT = ${currentData.sell_price.toLocaleString()} ${toCurrency}`}
-              </span>
-            </div>
-            {fromCurrency === 'COP' && trm && (
+          <div className="space-y-3 text-sm">
+            {rateDetails.map((detail) => (
+              <div key={detail.key} className="flex justify-between text-gray-400">
+                <span>{detail.label}</span>
+                <span className="text-white font-medium">{detail.value}</span>
+              </div>
+            ))}
+            {result.feePercentage > 0 && (
+              <div className="flex justify-between text-gray-400 pt-2 border-t border-gray-600">
+                <span>Margen aplicado total</span>
+                <span className="text-white font-medium">
+                  Incluido ({result.feePercentage.toFixed(2)}%)
+                </span>
+              </div>
+            )}
+            {showTrm && (
               <div className="flex justify-between text-gray-400 pt-2 border-t border-gray-600">
                 <span>TRM Oficial</span>
                 <span className="text-white font-medium">
-                  ${trm.toLocaleString('es-CO', { minimumFractionDigits: 2 })}
+                  ${Math.round(trmValue ?? 0).toLocaleString('es-CO')}
                 </span>
               </div>
             )}
@@ -311,14 +381,22 @@ export function CurrencyCalculator({
         </div>
       )}
 
-      {/* Mensaje de ayuda */}
-      {(!copData && fromCurrency === 'COP') || (!vesData && fromCurrency === 'VES') ? (
+      {/* Mensajes de ayuda / error */}
+      {missingData.length > 0 && (
         <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-700/50 rounded-lg">
           <p className="text-sm text-yellow-400">
-            Los precios se están cargando. Por favor espera un momento.
+            {`Las tasas de ${missingData.join(' / ')} se están cargando. Por favor espera un momento.`}
           </p>
         </div>
-      ) : null}
+      )}
+
+      {missingData.length === 0 && hasAmount && !result && (
+        <div className="mt-4 p-3 bg-red-900/20 border border-red-700/50 rounded-lg">
+          <p className="text-sm text-red-400">
+            No pudimos calcular esta conversión con las tasas actuales. Intenta nuevamente en unos segundos.
+          </p>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,101 +1,97 @@
 'use client'
 
-import { useState } from 'react'
-import { AlertTriangle, Shield, TrendingDown, Target, Award, Activity } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { AlertTriangle, Shield, TrendingDown, Target, Award, Activity, Loader2 } from 'lucide-react'
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
+import api from '@/lib/api'
 
-interface RiskMetricsProps {
-  returns?: number[]
-  equityCurve?: number[]
-  trades?: Array<{
-    profit: number
-    is_win: boolean
-  }>
-}
-
-export function RiskMetricsDashboard({ returns = [], equityCurve = [], trades = [] }: RiskMetricsProps) {
+export function RiskMetricsDashboard() {
   const [activeTab, setActiveTab] = useState<'overview' | 'detailed'>('overview')
   const [metrics, setMetrics] = useState<any>(null)
   const [loading, setLoading] = useState(false)
 
-  // Calcular métricas si hay datos
-  const calculateMetrics = async () => {
-    if (returns.length < 30 || equityCurve.length < 10 || trades.length < 10) {
+  // Obtener trades completados para calcular métricas
+  const { data: tradesData, isLoading: loadingTrades } = useQuery({
+    queryKey: ['completed-trades'],
+    queryFn: async () => {
+      try {
+        const data = await api.getTrades(0, 1000, 'COMPLETED')
+        return data
+      } catch (error) {
+        console.error('Error fetching trades:', error)
+        return { trades: [], total: 0 }
+      }
+    },
+    refetchInterval: 60000, // Actualizar cada minuto
+  })
+
+  // Obtener performance metrics
+  const { data: performanceData } = useQuery({
+    queryKey: ['performance-metrics'],
+    queryFn: () => api.getPerformanceMetrics(30),
+    refetchInterval: 60000,
+  })
+
+  // Procesar datos reales
+  useEffect(() => {
+    if (!tradesData?.trades || tradesData.trades.length < 10) {
+      return
+    }
+
+    const trades = tradesData.trades as any[]
+    
+    // Calcular returns desde trades
+    const returns: number[] = []
+    const equityCurve: number[] = []
+    let cumulativeProfit = 0
+    
+    // Ordenar trades por fecha
+    const sortedTrades = [...trades].sort((a, b) => 
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    )
+
+    sortedTrades.forEach((trade) => {
+      const profit = trade.actual_profit || 0
+      const profitPercent = profit > 0 ? (profit / (trade.fiat_amount || 1)) * 100 : 0
+      returns.push(profitPercent)
+      cumulativeProfit += profit
+      equityCurve.push(cumulativeProfit)
+    })
+
+    // Preparar trades para métricas
+    const tradesForMetrics = sortedTrades.map((trade) => ({
+      profit: trade.actual_profit || 0,
+      is_win: (trade.actual_profit || 0) > 0,
+    }))
+
+    // Calcular métricas si hay suficientes datos
+    if (returns.length >= 10 && equityCurve.length >= 10) {
+      calculateMetrics(returns, equityCurve, tradesForMetrics)
+    }
+  }, [tradesData])
+
+  // Calcular métricas con datos reales
+  const calculateMetrics = async (
+    returns: number[],
+    equityCurve: number[],
+    trades: Array<{ profit: number; is_win: boolean }>
+  ) => {
+    if (returns.length < 10 || equityCurve.length < 10 || trades.length < 10) {
       return
     }
 
     setLoading(true)
 
     try {
-      // Calcular VaR
-      const varResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/analytics/risk/calculate-var`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'ngrok-skip-browser-warning': 'true',
-          },
-          body: JSON.stringify({ returns, confidence_level: 0.95, time_horizon_days: 1 }),
-        }
-      )
-      const varData = await varResponse.json()
-
-      // Calcular Sharpe
-      const sharpeResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/analytics/risk/calculate-sharpe`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'ngrok-skip-browser-warning': 'true',
-          },
-          body: JSON.stringify({ returns }),
-        }
-      )
-      const sharpeData = await sharpeResponse.json()
-
-      // Calcular Sortino
-      const sortinoResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/analytics/risk/calculate-sortino`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'ngrok-skip-browser-warning': 'true',
-          },
-          body: JSON.stringify({ returns }),
-        }
-      )
-      const sortinoData = await sortinoResponse.json()
-
-      // Calcular Drawdown
-      const drawdownResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/analytics/risk/calculate-drawdown`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'ngrok-skip-browser-warning': 'true',
-          },
-          body: JSON.stringify({ equity_curve: equityCurve }),
-        }
-      )
-      const drawdownData = await drawdownResponse.json()
-
-      // Calcular Trading Metrics
-      const tradingResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/analytics/risk/trading-metrics`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'ngrok-skip-browser-warning': 'true',
-          },
-          body: JSON.stringify({ trades }),
-        }
-      )
-      const tradingData = await tradingResponse.json()
+      // Calcular métricas usando el cliente API
+      const [varData, sharpeData, sortinoData, drawdownData, tradingData] = await Promise.all([
+        api.calculateVaR(returns, 0.95, 1).catch(() => ({ success: false })),
+        api.calculateSharpe(returns).catch(() => ({ success: false })),
+        api.calculateSortino(returns, 0.0).catch(() => ({ success: false })),
+        api.calculateDrawdown(equityCurve).catch(() => ({ success: false })),
+        api.calculateTradingMetrics(trades).catch(() => ({ success: false })),
+      ])
 
       setMetrics({
         var: varData,
@@ -103,6 +99,8 @@ export function RiskMetricsDashboard({ returns = [], equityCurve = [], trades = 
         sortino: sortinoData,
         drawdown: drawdownData,
         trading: tradingData,
+        equityCurve,
+        returns,
       })
     } catch (error) {
       console.error('Error calculating risk metrics:', error)
@@ -111,21 +109,29 @@ export function RiskMetricsDashboard({ returns = [], equityCurve = [], trades = 
     }
   }
 
+  // Obtener equity curve desde métricas
+  const equityCurve = metrics?.equityCurve || []
+  const returns = metrics?.returns || []
+
   // Preparar datos de equity curve para el chart
-  const equityChartData = equityCurve.map((value, index) => ({
-    period: index,
-    equity: value,
-  }))
+  const equityChartData = equityCurve.length > 0
+    ? equityCurve.map((value: number, index: number) => ({
+        period: index,
+        equity: value,
+      }))
+    : []
 
   // Preparar datos de drawdown
-  const drawdownChartData = equityCurve.map((value, index, arr) => {
-    const peak = Math.max(...arr.slice(0, index + 1))
-    const drawdown = ((value - peak) / peak) * 100
-    return {
-      period: index,
-      drawdown,
-    }
-  })
+  const drawdownChartData = equityCurve.length > 0
+    ? equityCurve.map((value: number, index: number, arr: number[]) => {
+        const peak = Math.max(...arr.slice(0, index + 1))
+        const drawdown = peak > 0 ? ((value - peak) / peak) * 100 : 0
+        return {
+          period: index,
+          drawdown,
+        }
+      })
+    : []
 
   const getRatingColor = (rating: string) => {
     switch (rating) {
@@ -159,13 +165,17 @@ export function RiskMetricsDashboard({ returns = [], equityCurve = [], trades = 
           </div>
         </div>
 
-        <button
-          onClick={calculateMetrics}
-          disabled={loading || returns.length < 30}
-          className="px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all"
-        >
-          {loading ? 'Calculando...' : 'Calcular Métricas'}
-        </button>
+        {loadingTrades && (
+          <div className="flex items-center gap-2 text-gray-400">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm">Cargando datos...</span>
+          </div>
+        )}
+        {!loadingTrades && (!tradesData?.trades || tradesData.trades.length < 10) && (
+          <div className="text-sm text-gray-400">
+            Se necesitan al menos 10 trades para calcular métricas
+          </div>
+        )}
       </div>
 
       {/* Tabs */}

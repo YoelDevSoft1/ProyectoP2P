@@ -25,8 +25,8 @@ class Settings(BaseSettings):
 
     # Base de datos
     DATABASE_URL: str
-    DB_POOL_SIZE: int = 10
-    DB_MAX_OVERFLOW: int = 20
+    DB_POOL_SIZE: int = 20  # Aumentado de 10 a 20 para soportar 4 workers concurrentes
+    DB_MAX_OVERFLOW: int = 30  # Aumentado de 20 a 30 para picos de carga
 
     # Redis
     REDIS_URL: str

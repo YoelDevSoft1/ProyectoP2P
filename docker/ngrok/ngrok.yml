@@ -1,0 +1,26 @@
+version: "2"
+# El authtoken será reemplazado automáticamente al iniciar el contenedor
+authtoken: ${NGROK_AUTHTOKEN}
+
+tunnels:
+  backend:
+    addr: backend:8000
+    proto: http
+    schemes:
+      - https
+      - http
+    inspect: true
+    bind_tls: true
+    # Headers para saltar la página de advertencia de ngrok free tier
+    request_header:
+      add:
+        - "ngrok-skip-browser-warning:true"
+
+# Interfaz web de ngrok en el puerto 4040
+web_addr: 0.0.0.0:4040
+
+# Configuración de logging
+log_level: info
+log_format: logfmt
+log: stdout
+

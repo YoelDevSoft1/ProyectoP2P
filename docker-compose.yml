@@ -35,7 +35,19 @@ services:
     networks:
       - p2p_network
     restart: unless-stopped
-    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 2gb
+      --maxmemory-policy volatile-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --tcp-keepalive 300
+      --timeout 0
+      --tcp-backlog 511
+      --hz 10
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -128,12 +140,12 @@ services:
       retries: 3
       start_period: 40s
 
-  # Celery Worker para tareas asíncronas
-  celery_worker:
+  # Celery Worker - Alta Prioridad (tareas críticas)
+  celery_worker_high:
     build:
       context: ./backend
       dockerfile: ../docker/Dockerfile.backend
-    container_name: p2p_celery_worker
+    container_name: p2p_celery_worker_high
     env_file:
       - .env
     environment:
@@ -142,7 +154,7 @@ services:
       - RABBITMQ_URL=amqp://p2p_user:p2p_password_change_me@rabbitmq:5672/
     volumes:
       - ./backend:/app
-      - celery_logs:/app/logs
+      - celery_logs_high:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
@@ -155,7 +167,77 @@ services:
     networks:
       - p2p_network
     restart: unless-stopped
-    command: celery -A celery_app.worker worker --loglevel=info --concurrency=4
+    command: celery -A celery_app.worker worker --loglevel=info --concurrency=2 --queues=high_priority --prefetch-multiplier=1 --hostname=worker_high@%h
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A celery_app.worker inspect ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Celery Worker - Prioridad Default (tareas normales)
+  celery_worker_default:
+    build:
+      context: ./backend
+      dockerfile: ../docker/Dockerfile.backend
+    container_name: p2p_celery_worker_default
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://p2p_user:p2p_password_change_me@postgres:5432/p2p_db
+      - REDIS_URL=redis://redis:6379/0
+      - RABBITMQ_URL=amqp://p2p_user:p2p_password_change_me@rabbitmq:5672/
+    volumes:
+      - ./backend:/app
+      - celery_logs_default:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    networks:
+      - p2p_network
+    restart: unless-stopped
+    command: celery -A celery_app.worker worker --loglevel=info --concurrency=3 --queues=default --prefetch-multiplier=2 --hostname=worker_default@%h
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A celery_app.worker inspect ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Celery Worker - Baja Prioridad (tareas pesadas)
+  celery_worker_low:
+    build:
+      context: ./backend
+      dockerfile: ../docker/Dockerfile.backend
+    container_name: p2p_celery_worker_low
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://p2p_user:p2p_password_change_me@postgres:5432/p2p_db
+      - REDIS_URL=redis://redis:6379/0
+      - RABBITMQ_URL=amqp://p2p_user:p2p_password_change_me@rabbitmq:5672/
+    volumes:
+      - ./backend:/app
+      - celery_logs_low:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    networks:
+      - p2p_network
+    restart: unless-stopped
+    command: celery -A celery_app.worker worker --loglevel=info --concurrency=1 --queues=low_priority --prefetch-multiplier=1 --hostname=worker_low@%h
     healthcheck:
       test: ["CMD-SHELL", "celery -A celery_app.worker inspect ping"]
       interval: 30s
@@ -251,12 +333,62 @@ services:
       retries: 3
       start_period: 30s
 
+  # ngrok para exponer backend públicamente
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: p2p_ngrok
+    restart: unless-stopped
+    # Script de inicio que reemplaza el authtoken en el archivo de configuración
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        # Verificar que NGROK_AUTHTOKEN esté configurado
+        if [ -z "$$NGROK_AUTHTOKEN" ]; then
+          echo "ERROR: NGROK_AUTHTOKEN no está configurado en .env"
+          echo "Por favor, agrega NGROK_AUTHTOKEN a tu archivo .env"
+          echo "Puedes obtener tu authtoken desde: https://dashboard.ngrok.com/get-started/your-authtoken"
+          exit 1
+        fi
+        # Reemplazar el placeholder en el archivo de configuración
+        echo "Configurando authtoken de ngrok..."
+        sed -i "s|authtoken: \$${NGROK_AUTHTOKEN}|authtoken: $$NGROK_AUTHTOKEN|g" /etc/ngrok/ngrok.yml
+        # Verificar que el archivo de configuración sea válido
+        if ! grep -q "authtoken:" /etc/ngrok/ngrok.yml; then
+          echo "ERROR: No se pudo configurar el authtoken en el archivo de configuración"
+          exit 1
+        fi
+        echo "Authtoken configurado correctamente"
+        echo "Iniciando ngrok..."
+        # Iniciar ngrok (el depends_on se encarga de esperar que el backend esté listo)
+        exec ngrok start --all --config /etc/ngrok/ngrok.yml
+    volumes:
+      - ./docker/ngrok:/etc/ngrok
+    ports:
+      - "4040:4040"  # Web Interface de ngrok
+    networks:
+      - p2p_network
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    # Healthcheck para ngrok - verificar que la API esté respondiendo
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4040/api/tunnels"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
 volumes:
   postgres_data:
   redis_data:
   rabbitmq_data:
   backend_logs:
-  celery_logs:
+  celery_logs_high:
+  celery_logs_default:
+  celery_logs_low:
   celerybeat_data:
   grafana_data:
   prometheus_data:

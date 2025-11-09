@@ -21,15 +21,42 @@ export function PerformanceCharts() {
     refetchInterval: 60000,
   })
 
-  // Procesar datos del backend o generar datos simulados
+  // Obtener trades para calcular volumen y cantidad de trades
+  const { data: tradesData } = useQuery({
+    queryKey: ['trades-for-performance', timeframe],
+    queryFn: async () => {
+      try {
+        const data = await api.getTrades(0, 1000, 'COMPLETED')
+        return data
+      } catch (error) {
+        console.error('Error fetching trades:', error)
+        return { trades: [], total: 0 }
+      }
+    },
+    refetchInterval: 60000,
+  })
+
+  // Procesar datos del backend - SOLO datos reales
   const processChartData = () => {
-    const days = daysMap[timeframe]
-    
     // Si hay datos del backend, procesarlos
     if (stats?.daily_profit && typeof stats.daily_profit === 'object') {
       const dailyProfit = stats.daily_profit as Record<string, number>
-      const data = []
+      const trades = tradesData?.trades || []
+      const data: any[] = []
       let cumulativeProfit = 0
+      
+      // Agrupar trades por fecha
+      const tradesByDate: Record<string, { volume: number; count: number }> = {}
+      trades.forEach((trade: any) => {
+        if (trade.status === 'COMPLETED' && trade.created_at) {
+          const date = new Date(trade.created_at).toISOString().split('T')[0]
+          if (!tradesByDate[date]) {
+            tradesByDate[date] = { volume: 0, count: 0 }
+          }
+          tradesByDate[date].volume += trade.crypto_amount || 0
+          tradesByDate[date].count += 1
+        }
+      })
       
       // Convertir objeto a array y ordenar por fecha
       const sortedEntries = Object.entries(dailyProfit).sort((a, b) => 
@@ -39,48 +66,22 @@ export function PerformanceCharts() {
       sortedEntries.forEach(([dateStr, profit]) => {
         const date = new Date(dateStr)
         cumulativeProfit += profit
+        const dateData = tradesByDate[dateStr] || { volume: 0, count: 0 }
         
         data.push({
           date: date.toLocaleDateString('es', { month: 'short', day: 'numeric' }),
           profit: profit,
-          volume: profit * 50, // Estimación: volume ~ profit * 50
-          trades: Math.round(profit / 10), // Estimación: trades ~ profit / 10
+          volume: dateData.volume,
+          trades: dateData.count,
           cumulativeProfit: cumulativeProfit,
         })
       })
       
-      return data.length > 0 ? data : generateDailyData(days)
+      return data
     }
     
-    // Si no hay datos, generar datos simulados
-    return generateDailyData(days)
-  }
-
-  // Generar datos diarios simulados
-  const generateDailyData = (days: number) => {
-    const data = []
-    const baseProfit = 100
-    const baseVolume = 5000
-    const baseTrades = 10
-    let cumulativeProfit = 0
-
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date()
-      date.setDate(date.getDate() - i)
-      const variation = (Math.random() - 0.5) * 0.3 // ±15% variación
-      const profit = baseProfit * (1 + variation)
-      cumulativeProfit += profit
-      
-      data.push({
-        date: date.toLocaleDateString('es', { month: 'short', day: 'numeric' }),
-        profit: profit,
-        volume: baseVolume * (1 + variation * 0.5),
-        trades: Math.round(baseTrades * (1 + variation * 0.3)),
-        cumulativeProfit: cumulativeProfit,
-      })
-    }
-
-    return data
+    // Si no hay datos, retornar array vacío
+    return []
   }
 
   const chartData = processChartData()
@@ -111,6 +112,22 @@ export function PerformanceCharts() {
       )
     }
     return null
+  }
+
+  // Si no hay datos, mostrar estado vacío
+  if (chartData.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-white">Análisis de Rendimiento</h2>
+        </div>
+        <div className="bg-gray-800 rounded-xl p-12 border border-gray-700 text-center">
+          <Activity className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+          <p className="text-gray-400 text-lg mb-2">No hay datos de rendimiento disponibles</p>
+          <p className="text-gray-500 text-sm">Los datos aparecerán aquí una vez que haya trades completados</p>
+        </div>
+      </div>
+    )
   }
 
   return (

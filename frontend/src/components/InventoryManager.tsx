@@ -1,7 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { Wallet, TrendingUp, TrendingDown, AlertTriangle, RefreshCw, Plus, Minus } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { Wallet, TrendingUp, TrendingDown, AlertTriangle, RefreshCw, Plus, Minus, Loader2 } from 'lucide-react'
+import api from '@/lib/api'
 
 interface InventoryData {
   currency: string
@@ -13,32 +15,137 @@ interface InventoryData {
 }
 
 export function InventoryManager() {
-  const [inventory, setInventory] = useState<InventoryData[]>([
-    {
-      currency: 'USDT',
-      available: 50000,
-      reserved: 5000,
-      total: 55000,
-      value_usd: 55000,
-      trend: 'stable',
+  const [refreshing, setRefreshing] = useState(false)
+
+  // Obtener balances spot reales
+  const { data: spotBalances, isLoading: loadingBalances, refetch: refetchBalances } = useQuery({
+    queryKey: ['spot-balances'],
+    queryFn: async () => {
+      try {
+        const data = await api.getSpotBalances()
+        return data
+      } catch (error) {
+        console.error('Error fetching spot balances:', error)
+        return { balances: [] }
+      }
     },
-    {
+    refetchInterval: 30000, // Actualizar cada 30 segundos
+  })
+
+  // Obtener trades pendientes para calcular reservado
+  const { data: pendingTrades, isLoading: loadingTrades } = useQuery({
+    queryKey: ['pending-trades'],
+    queryFn: async () => {
+      try {
+        const data = await api.getTrades(0, 100, 'PENDING')
+        return data
+      } catch (error) {
+        console.error('Error fetching pending trades:', error)
+        return { trades: [], total: 0 }
+      }
+    },
+    refetchInterval: 30000,
+  })
+
+  // Obtener precios actuales para calcular valores en USD
+  const { data: currentPrices } = useQuery({
+    queryKey: ['current-prices'],
+    queryFn: () => api.getCurrentPrices('USDT'),
+    refetchInterval: 60000, // Actualizar cada minuto
+  })
+
+  // Procesar datos reales
+  const processInventoryData = (): InventoryData[] => {
+    const balances = spotBalances?.balances || []
+    const trades = pendingTrades?.trades || []
+    const prices = currentPrices || {}
+
+    // Calcular reservado desde trades pendientes
+    const reserved: Record<string, number> = {
+      USDT: 0,
+      COP: 0,
+      VES: 0,
+    }
+
+    trades.forEach((trade: any) => {
+      if (trade.status === 'PENDING' || trade.status === 'IN_PROGRESS') {
+        if (trade.asset === 'USDT') {
+          reserved.USDT += trade.crypto_amount || 0
+        }
+        if (trade.fiat === 'COP') {
+          reserved.COP += trade.fiat_amount || 0
+        }
+        if (trade.fiat === 'VES') {
+          reserved.VES += trade.fiat_amount || 0
+        }
+      }
+    })
+
+    // Procesar balances y crear inventario
+    const inventory: InventoryData[] = []
+    
+    // USDT
+    const usdtBalance = balances.find((b: any) => b.asset === 'USDT')
+    if (usdtBalance) {
+      const available = parseFloat(usdtBalance.free || '0')
+      const reserved_usdt = reserved.USDT || 0
+      inventory.push({
+        currency: 'USDT',
+        available: available - reserved_usdt,
+        reserved: reserved_usdt,
+        total: available,
+        value_usd: available,
+        trend: 'stable',
+      })
+    } else {
+      // Si no hay balance de USDT, mostrar 0 pero no reservado
+      inventory.push({
+        currency: 'USDT',
+        available: 0,
+        reserved: reserved.USDT || 0,
+        total: reserved.USDT || 0,
+        value_usd: reserved.USDT || 0,
+        trend: 'stable',
+      })
+    }
+
+    // COP - Calcular desde precios
+    const copPrice = prices.COP?.sell_price || 4000 // Precio por defecto si no hay datos
+    const copReserved = reserved.COP || 0
+    const copValueUsd = copReserved / copPrice
+    inventory.push({
       currency: 'COP',
-      available: 200000000,
-      reserved: 20000000,
-      total: 220000000,
-      value_usd: 50000,
-      trend: 'up',
-    },
-    {
+      available: 0, // No tenemos balance de COP en spot
+      reserved: copReserved,
+      total: copReserved,
+      value_usd: copValueUsd,
+      trend: 'stable',
+    })
+
+    // VES - Calcular desde precios
+    const vesPrice = prices.VES?.sell_price || 1600000 // Precio por defecto si no hay datos
+    const vesReserved = reserved.VES || 0
+    const vesValueUsd = vesReserved / vesPrice
+    inventory.push({
       currency: 'VES',
-      available: 50000000000,
-      reserved: 5000000000,
-      total: 55000000000,
-      value_usd: 30000,
-      trend: 'down',
-    },
-  ])
+      available: 0, // No tenemos balance de VES en spot
+      reserved: vesReserved,
+      total: vesReserved,
+      value_usd: vesValueUsd,
+      trend: 'stable',
+    })
+
+    return inventory
+  }
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    await Promise.all([refetchBalances()])
+    setRefreshing(false)
+  }
+
+  const inventory = processInventoryData()
+  const isLoading = loadingBalances || loadingTrades
 
   const totalValueUSD = inventory.reduce((sum, inv) => sum + inv.value_usd, 0)
   const totalAvailableUSD = inventory
@@ -78,12 +185,25 @@ export function InventoryManager() {
     return 'text-green-400'
   }
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary-400" />
+        <span className="ml-3 text-gray-400">Cargando inventario...</span>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-white">Gestión de Inventario</h2>
-        <button className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-all">
-          <RefreshCw className="h-4 w-4" />
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-all disabled:opacity-50"
+        >
+          <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
           Actualizar
         </button>
       </div>

@@ -127,8 +127,95 @@ async def metrics_endpoint():
     """
     from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
     metrics_output = generate_latest()
-    # Retornar como Response con el content-type correcto
+    
+    # Decodificar si es bytes
+    if isinstance(metrics_output, bytes):
+        content = metrics_output.decode('utf-8')
+    else:
+        content = metrics_output
+    
+    # Retornar Response con Content-Type correcto
+    # CONTENT_TYPE_LATEST es "text/plain; version=0.0.4; charset=utf-8"
     return Response(
-        content=metrics_output,
+        content=content,
         media_type=CONTENT_TYPE_LATEST
     )
+
+
+@router.get("/endpoints")
+async def list_endpoints():
+    """
+    Lista todos los endpoints disponibles en la API.
+    Útil para descubrir y documentar todos los endpoints.
+    """
+    from fastapi.routing import APIRoute
+    from app.main import app
+    
+    endpoints = []
+    
+    # Recorrer todas las rutas registradas
+    for route in app.routes:
+        # Solo procesar rutas APIRoute (endpoints reales)
+        if isinstance(route, APIRoute):
+            # Obtener métodos HTTP permitidos
+            methods = list(route.methods) if hasattr(route, 'methods') else ['GET']
+            
+            # Filtrar métodos OPTIONS y HEAD
+            methods = [m for m in methods if m not in ['OPTIONS', 'HEAD']]
+            
+            if not methods:
+                continue
+            
+            # Obtener path
+            path = route.path
+            
+            # Obtener tags
+            tags = route.tags if hasattr(route, 'tags') and route.tags else []
+            
+            # Obtener nombre de la operación
+            name = route.name if hasattr(route, 'name') else ""
+            
+            # Obtener descripción del endpoint
+            description = ""
+            if hasattr(route, 'endpoint') and hasattr(route.endpoint, '__doc__'):
+                doc = route.endpoint.__doc__
+                if doc:
+                    # Tomar la primera línea de la docstring como descripción
+                    description = doc.strip().split('\n')[0]
+            
+            # Obtener summary si existe
+            summary = ""
+            if hasattr(route, 'summary') and route.summary:
+                summary = route.summary
+            
+            # Agregar endpoint a la lista
+            for method in methods:
+                endpoints.append({
+                    "method": method,
+                    "path": path,
+                    "tags": tags,
+                    "name": name,
+                    "summary": summary,
+                    "description": description,
+                })
+    
+    # Ordenar por path y luego por método
+    endpoints.sort(key=lambda x: (x['path'], x['method']))
+    
+    # Agrupar por tags
+    endpoints_by_tag = {}
+    for endpoint in endpoints:
+        for tag in endpoint['tags']:
+            if tag not in endpoints_by_tag:
+                endpoints_by_tag[tag] = []
+            endpoints_by_tag[tag].append(endpoint)
+    
+    return {
+        "total": len(endpoints),
+        "base_url": settings.API_V1_STR,
+        "docs_url": f"{settings.API_V1_STR}/docs",
+        "redoc_url": f"{settings.API_V1_STR}/redoc",
+        "openapi_url": f"{settings.API_V1_STR}/openapi.json",
+        "endpoints": endpoints,
+        "endpoints_by_tag": endpoints_by_tag,
+    }

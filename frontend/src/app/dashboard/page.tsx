@@ -81,6 +81,14 @@ export default function Dashboard() {
             Dashboard
           </Link>
 
+          <Link
+            href="/monitoring"
+            className="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-colors"
+          >
+            <Activity className="h-5 w-5 mr-3" />
+            Monitoreo
+          </Link>
+
           <button
             className="flex items-center w-full px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-colors"
             disabled

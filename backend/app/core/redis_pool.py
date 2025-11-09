@@ -197,10 +197,41 @@ class RedisPool:
             
             # Intentar obtener info de Redis
             try:
-                info = await client.info("server")
-                pool_info["redis_version"] = info.get("redis_version")
-                pool_info["used_memory_human"] = info.get("used_memory_human")
-                pool_info["connected_clients"] = info.get("connected_clients")
+                info_server = await client.info("server")
+                info_memory = await client.info("memory")
+                info_stats = await client.info("stats")
+                
+                pool_info["redis_version"] = info_server.get("redis_version")
+                pool_info["used_memory_human"] = info_memory.get("used_memory_human")
+                pool_info["used_memory"] = info_memory.get("used_memory", 0)
+                pool_info["used_memory_peak"] = info_memory.get("used_memory_peak", 0)
+                pool_info["mem_fragmentation_ratio"] = info_memory.get("mem_fragmentation_ratio", 0)
+                pool_info["connected_clients"] = info_server.get("connected_clients", 0)
+                pool_info["keyspace_hits"] = info_stats.get("keyspace_hits", 0)
+                pool_info["keyspace_misses"] = info_stats.get("keyspace_misses", 0)
+                pool_info["evicted_keys"] = info_stats.get("evicted_keys", 0)
+                
+                # Actualizar métricas de memoria y estadísticas
+                from app.core.metrics import (
+                    redis_memory_used,
+                    redis_memory_peak,
+                    redis_memory_fragmentation_ratio,
+                    redis_connected_clients,
+                    redis_evicted_keys_total
+                )
+                
+                if info_memory.get("used_memory"):
+                    redis_memory_used.set(info_memory.get("used_memory", 0))
+                    redis_memory_peak.set(info_memory.get("used_memory_peak", 0))
+                    redis_memory_fragmentation_ratio.set(info_memory.get("mem_fragmentation_ratio", 0))
+                
+                if info_server.get("connected_clients"):
+                    redis_connected_clients.set(info_server.get("connected_clients", 0))
+                
+                if info_stats.get("evicted_keys"):
+                    # Nota: Esta métrica es acumulativa, pero Redis solo da el total
+                    # Para tracking preciso, necesitaríamos trackear cambios
+                    pass
             except Exception:
                 pass  # Si no podemos obtener info, no es crítico
             

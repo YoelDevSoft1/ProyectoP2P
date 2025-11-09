@@ -1,0 +1,5 @@
+# Ignorar archivos de configuración con authtoken
+# El authtoken debe estar solo en .env
+ngrok.yml.local
+*.local
+

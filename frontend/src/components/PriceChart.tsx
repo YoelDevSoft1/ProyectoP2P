@@ -41,9 +41,17 @@ export function PriceChart({ currency, initialData }: PriceChartProps) {
 
   // Procesar datos para el gráfico
   const rawData = historyData?.history || initialData || []
-  const shouldShowTime = rawData.length < 50
   
-  const chartData: ChartDataPoint[] = rawData
+  // Ordenar por timestamp para asegurar orden correcto
+  const sortedData = [...rawData].sort((a: any, b: any) => {
+    const dateA = new Date(a.timestamp || a.date).getTime()
+    const dateB = new Date(b.timestamp || b.date).getTime()
+    return dateA - dateB
+  })
+  
+  const shouldShowTime = sortedData.length < 50
+  
+  const chartData: ChartDataPoint[] = sortedData
     .map((item: any): ChartDataPoint | null => {
       const date = new Date(item.timestamp || item.date)
       // El backend devuelve bid (compra) y ask (venta)
@@ -52,12 +60,25 @@ export function PriceChart({ currency, initialData }: PriceChartProps) {
       const sellPrice = item.ask || item.sell_price || item.avg || item.value || 0
       const value = priceType === 'buy' ? buyPrice : sellPrice
       
-      if (value <= 0) return null
+      if (value <= 0 || !Number.isFinite(value)) return null
+      
+      // Formatear fecha según el timeframe
+      let dateLabel: string
+      if (shouldShowTime) {
+        dateLabel = date.toLocaleDateString('es', { 
+          month: 'short', 
+          day: 'numeric', 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        })
+      } else if (timeframe === '30d') {
+        dateLabel = date.toLocaleDateString('es', { month: 'short', day: 'numeric' })
+      } else {
+        dateLabel = date.toLocaleDateString('es', { month: 'short', day: 'numeric', hour: '2-digit' })
+      }
       
       return {
-        date: shouldShowTime
-          ? date.toLocaleDateString('es', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-          : date.toLocaleDateString('es', { month: 'short', day: 'numeric' }),
+        date: dateLabel,
         timestamp: date.getTime(),
         value,
         buy_price: buyPrice,
@@ -66,6 +87,53 @@ export function PriceChart({ currency, initialData }: PriceChartProps) {
       }
     })
     .filter((item: ChartDataPoint | null): item is ChartDataPoint => item !== null)
+  
+  // Calcular dominio Y dinámico basado en los datos
+  const calculateYDomain = () => {
+    if (chartData.length === 0) return [0, 100]
+    
+    const values = chartData.map(d => d.value)
+    const minValue = Math.min(...values)
+    const maxValue = Math.max(...values)
+    const range = maxValue - minValue
+    const avgValue = (minValue + maxValue) / 2
+    
+    // Si el rango es muy pequeño comparado con el valor promedio
+    const rangePercent = (range / avgValue) * 100
+    
+    // Para variaciones muy pequeñas (< 1% del promedio), usar un dominio muy ajustado
+    if (rangePercent < 1) {
+      // Margen del 100% del rango por encima y por debajo (duplica el espacio visible)
+      const margin = range * 1.0
+      return [Math.max(0, minValue - margin), maxValue + margin]
+    }
+    // Para variaciones pequeñas (1-5% del promedio), usar margen del 50% del rango
+    else if (rangePercent < 5) {
+      const margin = range * 0.5
+      return [Math.max(0, minValue - margin), maxValue + margin]
+    }
+    // Para variaciones medianas (5-20% del promedio), usar margen del 10% del rango
+    else if (rangePercent < 20) {
+      const margin = range * 0.1
+      return [Math.max(0, minValue - margin), maxValue + margin]
+    }
+    // Para variaciones grandes, usar margen del 5% del rango
+    else {
+      const margin = range * 0.05
+      return [Math.max(0, minValue - margin), maxValue + margin]
+    }
+  }
+  
+  const yDomain = calculateYDomain()
+  
+  // Calcular información sobre el rango para debugging (opcional)
+  const rangeInfo = chartData.length > 0 ? {
+    min: Math.min(...chartData.map(d => d.value)),
+    max: Math.max(...chartData.map(d => d.value)),
+    range: Math.max(...chartData.map(d => d.value)) - Math.min(...chartData.map(d => d.value)),
+    avg: chartData.reduce((acc, d) => acc + d.value, 0) / chartData.length,
+    rangePercent: ((Math.max(...chartData.map(d => d.value)) - Math.min(...chartData.map(d => d.value))) / (chartData.reduce((acc, d) => acc + d.value, 0) / chartData.length)) * 100
+  } : null
 
   // Calcular tendencia
   const trend = chartData.length >= 2
@@ -81,37 +149,69 @@ export function PriceChart({ currency, initialData }: PriceChartProps) {
   const currencySymbol = currency === 'COP' ? '$' : 'Bs.'
   const currencyName = currency === 'COP' ? 'Peso Colombiano' : 'Bolívar Venezolano'
 
-  const formatValue = (value: number) => {
+  const formatValue = (value: number, showDecimals = false) => {
     if (currency === 'VES') {
-      return value.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      if (showDecimals) {
+        return value.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      }
+      return Math.round(value).toLocaleString('es-VE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
     }
-    return value.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+    // COP
+    if (showDecimals) {
+      return value.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    }
+    return Math.round(value).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
   }
 
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload
-      return (
-        <div className="bg-gray-800 border border-gray-700 rounded-lg p-3 shadow-xl">
-          <p className="text-sm text-gray-400 mb-2">{data.date}</p>
-          <p className="text-lg font-bold text-white">
-            {currencySymbol}{formatValue(data.value)} {currency}
-          </p>
-          {data.buy_price && data.sell_price && (
-            <div className="mt-2 space-y-1 text-xs">
-              <p className="text-green-400">
-                Compra: {currencySymbol}{formatValue(data.buy_price)}
-              </p>
-              <p className="text-red-400">
-                Venta: {currencySymbol}{formatValue(data.sell_price)}
-              </p>
-            </div>
-          )}
-        </div>
-      )
+  // Crear componente de tooltip que tenga acceso a chartData
+  const createCustomTooltip = (dataArray: ChartDataPoint[]) => {
+    return ({ active, payload, label }: any) => {
+      if (active && payload && payload.length) {
+        const data = payload[0].payload as ChartDataPoint
+        const currentIndex = dataArray.findIndex(d => d.timestamp === data.timestamp)
+        const previousValue = currentIndex > 0 ? dataArray[currentIndex - 1].value : null
+        const change = previousValue !== null ? data.value - previousValue : null
+        const changePercent = previousValue !== null && previousValue > 0 
+          ? ((change! / previousValue) * 100) 
+          : null
+        
+        return (
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3 shadow-xl backdrop-blur-sm">
+            <p className="text-sm text-gray-400 mb-2 font-medium">{label}</p>
+            <p className="text-xl font-bold text-white mb-2">
+              {currencySymbol}{formatValue(data.value, true)} {currency}
+            </p>
+            {change !== null && changePercent !== null && (
+              <div className={`text-xs font-medium ${
+                change >= 0 ? 'text-green-400' : 'text-red-400'
+              }`}>
+                {change >= 0 ? '↑' : '↓'} {formatValue(Math.abs(change), true)} 
+                {' '}({changePercent >= 0 ? '+' : ''}{changePercent.toFixed(3)}%)
+              </div>
+            )}
+            {data.buy_price && data.sell_price && (
+              <div className="mt-2 pt-2 border-t border-gray-700 space-y-1 text-xs">
+                <p className="text-green-400">
+                  Compra: {currencySymbol}{formatValue(data.buy_price, true)}
+                </p>
+                <p className="text-red-400">
+                  Venta: {currencySymbol}{formatValue(data.sell_price, true)}
+                </p>
+                {data.spread !== undefined && (
+                  <p className="text-gray-400">
+                    Spread: {data.spread.toFixed(2)}%
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )
+      }
+      return null
     }
-    return null
   }
+  
+  const CustomTooltip = createCustomTooltip(chartData)
 
   return (
     <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 border border-gray-700 shadow-xl">
@@ -196,37 +296,77 @@ export function PriceChart({ currency, initialData }: PriceChartProps) {
           </div>
         </div>
       ) : (
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+        <ResponsiveContainer width="100%" height={350}>
+          <LineChart 
+            data={chartData} 
+            margin={{ top: 10, right: 20, left: 10, bottom: 60 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
             <XAxis
               dataKey="date"
               stroke="#9CA3AF"
-              style={{ fontSize: '12px' }}
+              style={{ fontSize: '11px' }}
               angle={-45}
               textAnchor="end"
-              height={60}
+              height={70}
+              interval="preserveStartEnd"
+              tick={{ fill: '#9CA3AF' }}
             />
             <YAxis
+              domain={yDomain}
               stroke="#9CA3AF"
               style={{ fontSize: '12px' }}
+              tick={{ fill: '#9CA3AF' }}
               tickFormatter={(value) => {
-                if (currency === 'VES') {
-                  return (value / 1000000).toFixed(1) + 'M'
+                if (chartData.length === 0) {
+                  return value.toFixed(0)
                 }
-                return (value / 1000).toFixed(0) + 'K'
+                
+                // Determinar el rango del dominio para formatear apropiadamente
+                const domainRange = yDomain[1] - yDomain[0]
+                const maxValue = Math.max(...chartData.map(d => d.value))
+                const needsDecimals = domainRange < 100 || (maxValue > 0 && (domainRange / maxValue) < 0.1)
+                
+                // Formatear según la moneda y el rango
+                if (currency === 'VES') {
+                  if (value >= 1000000) {
+                    return needsDecimals ? (value / 1000000).toFixed(2) + 'M' : (value / 1000000).toFixed(1) + 'M'
+                  } else if (value >= 1000) {
+                    return needsDecimals ? (value / 1000).toFixed(2) + 'K' : (value / 1000).toFixed(1) + 'K'
+                  }
+                  return needsDecimals ? value.toFixed(2) : value.toFixed(1)
+                } else {
+                  // COP
+                  if (value >= 1000) {
+                    return needsDecimals ? (value / 1000).toFixed(2) + 'K' : (value / 1000).toFixed(1) + 'K'
+                  }
+                  return needsDecimals ? value.toFixed(2) : value.toFixed(1)
+                }
               }}
+              width={75}
             />
-            <Tooltip content={<CustomTooltip />} />
-            <Legend />
+            <Tooltip 
+              content={<CustomTooltip />}
+              cursor={{ stroke: '#6B7280', strokeWidth: 1, strokeDasharray: '5 5' }}
+            />
+            <Legend 
+              wrapperStyle={{ paddingTop: '20px' }}
+              iconType="line"
+            />
             <Line
               type="monotone"
               dataKey="value"
               stroke={priceType === 'buy' ? '#22c55e' : '#ef4444'}
-              strokeWidth={2}
+              strokeWidth={2.5}
               dot={false}
-              activeDot={{ r: 6 }}
+              activeDot={{ 
+                r: 6, 
+                fill: priceType === 'buy' ? '#22c55e' : '#ef4444',
+                stroke: '#fff',
+                strokeWidth: 2
+              }}
               name={priceType === 'buy' ? 'Precio de Compra' : 'Precio de Venta'}
+              animationDuration={300}
             />
           </LineChart>
         </ResponsiveContainer>
@@ -234,36 +374,57 @@ export function PriceChart({ currency, initialData }: PriceChartProps) {
 
       {/* Información adicional */}
       {chartData.length > 0 && (
-        <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-          <div>
+        <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="bg-gray-700/30 rounded-lg p-3 border border-gray-600">
             <p className="text-xs text-gray-400 mb-1">Mínimo</p>
             <p className="text-sm font-semibold text-white">
               {currencySymbol}
-              {formatValue(Math.min(...chartData.map((d: ChartDataPoint) => d.value)))}
+              {formatValue(Math.min(...chartData.map((d: ChartDataPoint) => d.value)), true)}
             </p>
+            {chartData.length > 1 && (
+              <p className="text-xs text-gray-500 mt-1">
+                {chartData.findIndex(d => d.value === Math.min(...chartData.map(d => d.value))) === 0 ? 'Inicio' : 'Durante el período'}
+              </p>
+            )}
           </div>
-          <div>
+          <div className="bg-gray-700/30 rounded-lg p-3 border border-gray-600">
             <p className="text-xs text-gray-400 mb-1">Máximo</p>
             <p className="text-sm font-semibold text-white">
               {currencySymbol}
-              {formatValue(Math.max(...chartData.map((d: ChartDataPoint) => d.value)))}
+              {formatValue(Math.max(...chartData.map((d: ChartDataPoint) => d.value)), true)}
             </p>
+            {chartData.length > 1 && (
+              <p className="text-xs text-gray-500 mt-1">
+                {chartData.findIndex(d => d.value === Math.max(...chartData.map(d => d.value))) === chartData.length - 1 ? 'Actual' : 'Durante el período'}
+              </p>
+            )}
           </div>
-          <div>
+          <div className="bg-gray-700/30 rounded-lg p-3 border border-gray-600">
             <p className="text-xs text-gray-400 mb-1">Promedio</p>
             <p className="text-sm font-semibold text-white">
               {currencySymbol}
               {formatValue(
-                chartData.reduce((acc: number, d: ChartDataPoint) => acc + d.value, 0) / chartData.length
+                chartData.reduce((acc: number, d: ChartDataPoint) => acc + d.value, 0) / chartData.length,
+                true
               )}
             </p>
+            {chartData.length > 1 && (
+              <p className="text-xs text-gray-500 mt-1">
+                {chartData.length} puntos
+              </p>
+            )}
           </div>
-          <div>
+          <div className="bg-gray-700/30 rounded-lg p-3 border border-gray-600">
             <p className="text-xs text-gray-400 mb-1">Actual</p>
             <p className="text-sm font-semibold text-white">
               {currencySymbol}
-              {formatValue(chartData[chartData.length - 1]?.value || 0)}
+              {formatValue(chartData[chartData.length - 1]?.value || 0, true)}
             </p>
+            {chartData.length > 1 && (
+              <p className="text-xs text-gray-500 mt-1">
+                {trendPercentage >= 0 ? '+' : ''}{trendPercentage.toFixed(2)}% desde inicio
+              </p>
+            )}
           </div>
         </div>
       )}
