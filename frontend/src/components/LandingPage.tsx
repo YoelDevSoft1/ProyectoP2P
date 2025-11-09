@@ -39,31 +39,58 @@ export default function LandingPage({
   const { data: prices, isLoading: pricesLoading, error: pricesError } = useQuery({
     queryKey: ['prices'],
     queryFn: () => api.getCurrentPrices(),
-    refetchInterval: 10000,
+    refetchInterval: 15000, // 15 segundos (aumentado de 10s para reducir carga)
     initialData: initialPrices ?? undefined,
-    retry: 1,
-    retryDelay: 2000,
+    staleTime: 10 * 1000, // Datos frescos por 10 segundos
+    gcTime: 2 * 60 * 1000, // Mantener en caché por 2 minutos
+    // Retry configurado globalmente en Providers, pero podemos override aquí
+    retry: (failureCount, error: any) => {
+      // Solo reintentar para timeouts o errores de red
+      if (error?.code === 'ECONNABORTED' || error?.message?.includes('timeout')) {
+        return failureCount < 2
+      }
+      return false
+    },
+    retryDelay: (attemptIndex) => Math.min(2000 * 2 ** attemptIndex, 10000),
     refetchOnWindowFocus: false,
+    // Mantener datos anteriores mientras se cargan nuevos
+    placeholderData: (previousData) => previousData,
   })
 
   const { data: trmData, error: trmError } = useQuery({
     queryKey: ['trm'],
     queryFn: () => api.getTRM(),
-    refetchInterval: 300000,
+    refetchInterval: 5 * 60 * 1000, // 5 minutos (TRM cambia lentamente)
     initialData: initialTrm ?? undefined,
-    retry: 1,
-    retryDelay: 2000,
+    staleTime: 4 * 60 * 1000, // Datos frescos por 4 minutos
+    gcTime: 10 * 60 * 1000, // Mantener en caché por 10 minutos
+    retry: (failureCount, error: any) => {
+      if (error?.code === 'ECONNABORTED' || error?.message?.includes('timeout')) {
+        return failureCount < 2
+      }
+      return false
+    },
+    retryDelay: (attemptIndex) => Math.min(2000 * 2 ** attemptIndex, 10000),
     refetchOnWindowFocus: false,
+    placeholderData: (previousData) => previousData,
   })
 
   const { data: stats, error: statsError } = useQuery({
     queryKey: ['stats'],
     queryFn: () => api.getTradeStats(7),
-    refetchInterval: 60000,
+    refetchInterval: 2 * 60 * 1000, // 2 minutos (aumentado de 1 minuto)
     initialData: initialStats ?? undefined,
-    retry: 1,
-    retryDelay: 2000,
+    staleTime: 90 * 1000, // Datos frescos por 90 segundos
+    gcTime: 5 * 60 * 1000, // Mantener en caché por 5 minutos
+    retry: (failureCount, error: any) => {
+      if (error?.code === 'ECONNABORTED' || error?.message?.includes('timeout')) {
+        return failureCount < 2
+      }
+      return false
+    },
+    retryDelay: (attemptIndex) => Math.min(2000 * 2 ** attemptIndex, 10000),
     refetchOnWindowFocus: false,
+    placeholderData: (previousData) => previousData,
   })
 
   // Log errors using useEffect

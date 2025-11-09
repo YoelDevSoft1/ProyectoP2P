@@ -1,36 +1,24 @@
 /**
  * Cliente de API para comunicación con el backend.
+ * Usa el nuevo api-client con retry logic, circuit breaker y caché local.
  */
-import axios from 'axios'
+import { axiosInstance, requestWithRetry, requestWithCache } from './api-client'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 const API_V1 = `${API_URL}/api/v1`
 
-// Crear instancia de axios
-const axiosInstance = axios.create({
-  baseURL: API_V1,
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-    // Header para evitar la página de interceptor de ngrok
-    'ngrok-skip-browser-warning': 'true',
-  },
-})
-
-// Interceptor para logging (opcional)
-axiosInstance.interceptors.response.use(
-  (response: any) => response,
-  (error: any) => {
-    console.error('API Error:', error.response?.data || error.message)
-    return Promise.reject(error)
-  }
-)
-
 const api = {
   // Health Check
   healthCheck: async () => {
-    const { data } = await axiosInstance.get('/health')
-    return data
+    try {
+      const { data } = await requestWithRetry(() =>
+        axiosInstance.get('/health')
+      )
+      return data
+    } catch (error: any) {
+      console.error('Error fetching health:', error)
+      return { status: 'error', error: error.message }
+    }
   },
 
   // Health Checks Individuales
@@ -96,26 +84,57 @@ const api = {
       const params = new URLSearchParams({ asset })
       if (fiat) params.append('fiat', fiat)
 
-      const { data } = await axiosInstance.get(`/prices/current?${params}`)
-      return data
+      return await requestWithCache(
+        `prices_current_${asset}_${fiat || 'all'}`,
+        async () => {
+          const { data } = await requestWithRetry(() =>
+            axiosInstance.get(`/prices/current?${params}`)
+          )
+          return data
+        },
+        {
+          cacheTTL: 10 * 1000, // 10 segundos de caché
+          useCache: true,
+          fallbackToCache: true, // Usar caché si la API falla
+        }
+      )
     } catch (error: any) {
       console.error('Error fetching current prices:', error)
-      // Retornar un objeto vacío en lugar de lanzar error
+      // Retornar objeto vacío en lugar de lanzar error
       return {}
     }
   },
 
   getPriceHistory: async (asset = 'USDT', fiat = 'COP', hours = 24) => {
-    const { data } = await axiosInstance.get('/prices/history', {
-      params: { asset, fiat, hours },
-    })
-    return data
+    try {
+      const { data } = await requestWithRetry(() =>
+        axiosInstance.get('/prices/history', {
+          params: { asset, fiat, hours },
+        })
+      )
+      return data
+    } catch (error: any) {
+      console.error('Error fetching price history:', error)
+      return []
+    }
   },
 
   getTRM: async () => {
     try {
-      const { data } = await axiosInstance.get('/prices/trm')
-      return data
+      return await requestWithCache(
+        'trm_data',
+        async () => {
+          const { data } = await requestWithRetry(() =>
+            axiosInstance.get('/prices/trm')
+          )
+          return data
+        },
+        {
+          cacheTTL: 5 * 60 * 1000, // 5 minutos de caché (TRM cambia lentamente)
+          useCache: true,
+          fallbackToCache: true,
+        }
+      )
     } catch (error: any) {
       console.error('Error fetching TRM:', error)
       // Retornar null en lugar de lanzar error
@@ -147,10 +166,22 @@ const api = {
 
   getTradeStats: async (days = 7) => {
     try {
-      const { data } = await axiosInstance.get('/trades/stats/summary', {
-        params: { days },
-      })
-      return data
+      return await requestWithCache(
+        `trade_stats_${days}`,
+        async () => {
+          const { data } = await requestWithRetry(() =>
+            axiosInstance.get('/trades/stats/summary', {
+              params: { days },
+            })
+          )
+          return data
+        },
+        {
+          cacheTTL: 60 * 1000, // 1 minuto de caché
+          useCache: true,
+          fallbackToCache: true,
+        }
+      )
     } catch (error: any) {
       console.error('Error fetching trade stats:', error)
       // Retornar null en lugar de lanzar error
