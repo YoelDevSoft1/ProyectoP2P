@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import api from '@/lib/api'
-import { parsePrometheusMetrics, getMetricValue, getMetricValues } from '@/lib/prometheus'
+import { parsePrometheusMetrics, getMetricValue, getMetricValues } from '../lib/prometheus'
 import { Activity, TrendingUp, Database, MessageSquare } from 'lucide-react'
 
 interface MetricPoint {
