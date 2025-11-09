@@ -120,9 +120,15 @@ async def celery_health():
 
 
 @router.get("/metrics")
-async def metrics_endpoint(response: Response):
+async def metrics_endpoint():
     """
     Endpoint de métricas Prometheus.
+    Retorna métricas en formato Prometheus (text/plain).
     """
-    response.headers["Content-Type"] = CONTENT_TYPE_LATEST
-    return generate_latest()
+    from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+    metrics_output = generate_latest()
+    # Retornar como Response con el content-type correcto
+    return Response(
+        content=metrics_output,
+        media_type=CONTENT_TYPE_LATEST
+    )

@@ -200,20 +200,22 @@ async def test_notification():
     Enviar notificación de prueba por Telegram.
     Útil para verificar que la configuración del bot está correcta.
     """
-    from app.services.notification_service import NotificationService
+    from app.services.telegram_service import telegram_service
 
-    notification_service = NotificationService()
-    success = await notification_service.test_notification()
-
-    if success:
+    # Probar conexión
+    test_result = await telegram_service.test_connection()
+    
+    if test_result.get("status") == "success":
         return {
             "status": "success",
-            "message": "Notificación de prueba enviada exitosamente"
+            "message": "Notificación de prueba enviada exitosamente",
+            "details": test_result
         }
     else:
         return {
             "status": "error",
-            "message": "No se pudo enviar la notificación. Verifica que TELEGRAM_BOT_TOKEN y TELEGRAM_CHAT_ID estén configurados correctamente."
+            "message": test_result.get("message", "Error desconocido"),
+            "details": test_result
         }
 
 

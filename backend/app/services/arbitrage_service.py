@@ -239,17 +239,29 @@ class ArbitrageService:
         assets: List[str],
         fiats: List[str],
     ) -> List[Dict[str, Any]]:
-        """Analizar en paralelo múltiples combinaciones Spot -> P2P."""
+        """
+        Analizar oportunidades de arbitraje Spot-P2P para múltiples pares.
+        Filtra pares inválidos antes de procesarlos para evitar errores de API.
+        """
         combinations: List[Tuple[str, str]] = []
         tasks = []
 
         unique_assets = list(dict.fromkeys(asset.upper() for asset in assets))
         unique_fiats = list(dict.fromkeys(fiat.upper() for fiat in fiats))
 
+        # Filtrar pares inválidos antes de crear tareas
         for asset in unique_assets:
             for fiat in unique_fiats:
-                combinations.append((asset, fiat))
-                tasks.append(self.analyze_spot_to_p2p_arbitrage(asset, fiat))
+                # Validar par antes de agregarlo
+                if self.p2p_service.is_valid_pair(asset, fiat):
+                    combinations.append((asset, fiat))
+                    tasks.append(self.analyze_spot_to_p2p_arbitrage(asset, fiat))
+                else:
+                    logger.debug(
+                        "Skipping invalid pair in arbitrage analysis",
+                        asset=asset,
+                        fiat=fiat
+                    )
 
         if not tasks:
             return []

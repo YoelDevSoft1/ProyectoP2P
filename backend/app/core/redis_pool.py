@@ -29,10 +29,13 @@ class RedisPool:
         self._is_healthy = False
         self._reconnect_attempts = 0
         self._max_reconnect_attempts = 5
+        self._loop_id: Optional[int] = None  # Track which asyncio loop owns the pool
     
     async def initialize(self) -> bool:
         """Inicializar pool de conexiones Redis"""
         try:
+            current_loop = asyncio.get_running_loop()
+            self._loop_id = id(current_loop)
             self._pool = ConnectionPool.from_url(
                 settings.REDIS_URL,
                 encoding="utf-8",
@@ -61,15 +64,60 @@ class RedisPool:
             metrics.track_redis_operation("ping", 0.0, "error")
             return False
     
-    async def get_client(self) -> aioredis.Redis:
+    async def get_client(self) -> Optional[aioredis.Redis]:
         """Obtener cliente Redis del pool"""
-        if self._client is None:
-            await self.initialize()
-        
-        # Verificar salud periódicamente
-        await self._ensure_healthy()
-        
-        return self._client
+        try:
+            # Verificar que hay un event loop corriendo
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                # No hay event loop corriendo, no podemos usar Redis
+                logger.warning("No running event loop, cannot get Redis client")
+                return None
+            
+            # Si el pool fue creado con otro loop (por ejemplo, cada llamada a asyncio.run
+            # en los workers de Celery crea un nuevo loop), debemos reconstruirlo
+            if self._loop_id and self._loop_id != id(loop):
+                logger.debug(
+                    "Detected event loop change, rebuilding Redis pool",
+                    previous_loop_id=self._loop_id,
+                    new_loop_id=id(loop),
+                )
+                await self.close()
+            
+            if self._client is None:
+                # Intentar inicializar dentro del event loop actual
+                initialized = await self.initialize()
+                if not initialized:
+                    return None
+            
+            # Verificar salud periódicamente
+            try:
+                await self._ensure_healthy()
+            except RuntimeError as e:
+                # Si el event loop se cerró durante la verificación, retornar None
+                if "Event loop is closed" in str(e) or "no running event loop" in str(e).lower():
+                    logger.warning("Event loop closed during health check, Redis unavailable")
+                    self._client = None
+                    self._pool = None
+                    self._is_healthy = False
+                    return None
+                raise
+            
+            return self._client
+        except RuntimeError as e:
+            # Si el event loop está cerrado, no podemos usar Redis
+            if "Event loop is closed" in str(e) or "no running event loop" in str(e).lower():
+                logger.debug("Event loop is closed, Redis unavailable", error=str(e))
+                # Limpiar el cliente y pool para forzar reinicialización en el próximo uso
+                self._client = None
+                self._pool = None
+                self._is_healthy = False
+                return None
+            raise
+        except Exception as e:
+            logger.error("Unexpected error getting Redis client", error=str(e))
+            return None
     
     async def _ensure_healthy(self) -> bool:
         """Asegurar que el pool está saludable"""
@@ -117,16 +165,18 @@ class RedisPool:
     
     async def close(self):
         """Cerrar pool de conexiones"""
-        if self._client:
-            await self._client.close()
-            self._client = None
-        
-        if self._pool:
-            await self._pool.aclose()
-            self._pool = None
-        
-        self._is_healthy = False
-        logger.info("Redis pool closed")
+        try:
+            if self._client:
+                await self._client.close()
+                self._client = None
+            
+            if self._pool:
+                await self._pool.aclose()
+                self._pool = None
+        finally:
+            self._is_healthy = False
+            self._loop_id = None
+            logger.info("Redis pool closed")
     
     async def health_check(self) -> dict:
         """Verificar salud del pool Redis"""

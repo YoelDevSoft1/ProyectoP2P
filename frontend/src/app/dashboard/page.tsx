@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { Home, TrendingUp, Bell, Settings, BarChart3, Activity, Shield, Zap, Target, DollarSign } from 'lucide-react'
+import { Home, TrendingUp, Bell, Settings, BarChart3, Activity, Shield, Zap, Target, DollarSign, Wallet, LineChart, FileText } from 'lucide-react'
 import api from '@/lib/api'
 import { DashboardStats } from '@/components/DashboardStats'
 import { RecentTrades } from '@/components/RecentTrades'
@@ -12,8 +12,14 @@ import { OrderbookDepth } from '@/components/OrderbookDepth'
 import { RiskMetricsDashboard } from '@/components/RiskMetricsDashboard'
 import { TriangleArbitrageOpportunities } from '@/components/TriangleArbitrageOpportunities'
 import { CompetitivePricingDashboard } from '@/components/CompetitivePricingDashboard'
+import { AdvancedMetrics } from '@/components/AdvancedMetrics'
+import { PerformanceCharts } from '@/components/PerformanceCharts'
+import { InventoryManager } from '@/components/InventoryManager'
+import { TradingControl } from '@/components/TradingControl'
+import { MarketAnalysis } from '@/components/MarketAnalysis'
+import { ReportsExport } from '@/components/ReportsExport'
 
-type TabType = 'overview' | 'arbitrage' | 'liquidity' | 'risk' | 'pricing'
+type TabType = 'overview' | 'metrics' | 'performance' | 'inventory' | 'trading' | 'market' | 'reports' | 'arbitrage' | 'liquidity' | 'risk' | 'pricing'
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<TabType>('overview')
@@ -27,10 +33,16 @@ export default function Dashboard() {
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
-    { id: 'arbitrage', label: 'Triangle Arbitrage', icon: Zap },
-    { id: 'pricing', label: 'Competitive Pricing', icon: DollarSign },
-    { id: 'liquidity', label: 'Market Depth', icon: Activity },
-    { id: 'risk', label: 'Risk Management', icon: Shield },
+    { id: 'metrics', label: 'Métricas', icon: Target },
+    { id: 'performance', label: 'Rendimiento', icon: LineChart },
+    { id: 'inventory', label: 'Inventario', icon: Wallet },
+    { id: 'trading', label: 'Trading', icon: Zap },
+    { id: 'market', label: 'Mercado', icon: Activity },
+    { id: 'reports', label: 'Reportes', icon: FileText },
+    { id: 'arbitrage', label: 'Arbitraje', icon: Zap },
+    { id: 'pricing', label: 'Pricing', icon: DollarSign },
+    { id: 'liquidity', label: 'Liquidez', icon: Activity },
+    { id: 'risk', label: 'Riesgo', icon: Shield },
   ]
 
   // Update time on client side only to avoid hydration mismatch
@@ -162,6 +174,48 @@ export default function Dashboard() {
                     <OrderbookDepth asset="USDT" fiat="COP" />
                     <OrderbookDepth asset="USDT" fiat="VES" />
                   </div>
+                </div>
+              )}
+
+              {/* Advanced Metrics Tab */}
+              {activeTab === 'metrics' && (
+                <div className="space-y-8">
+                  <AdvancedMetrics />
+                </div>
+              )}
+
+              {/* Performance Tab */}
+              {activeTab === 'performance' && (
+                <div className="space-y-8">
+                  <PerformanceCharts />
+                </div>
+              )}
+
+              {/* Inventory Tab */}
+              {activeTab === 'inventory' && (
+                <div className="space-y-8">
+                  <InventoryManager />
+                </div>
+              )}
+
+              {/* Trading Control Tab */}
+              {activeTab === 'trading' && (
+                <div className="space-y-8">
+                  <TradingControl />
+                </div>
+              )}
+
+              {/* Market Analysis Tab */}
+              {activeTab === 'market' && (
+                <div className="space-y-8">
+                  <MarketAnalysis />
+                </div>
+              )}
+
+              {/* Reports Tab */}
+              {activeTab === 'reports' && (
+                <div className="space-y-8">
+                  <ReportsExport />
                 </div>
               )}
 

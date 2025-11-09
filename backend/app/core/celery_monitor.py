@@ -7,7 +7,7 @@ from typing import Optional, Dict, Any
 import structlog
 from datetime import datetime
 
-from app.core.metrics import metrics
+from app.core.metrics import metrics, celery_tasks_active
 
 logger = structlog.get_logger()
 
@@ -31,10 +31,10 @@ class CeleryMonitor:
             # Obtener inspect para workers activos
             inspect = current_app.control.inspect()
             
-            # Verificar workers activos (con timeout)
-            active_workers = inspect.active(timeout=5) or {}
-            registered_tasks = inspect.registered(timeout=5) or {}
-            stats = inspect.stats(timeout=5) or {}
+            # Verificar workers activos (sin timeout, la API de Celery lo maneja internamente)
+            active_workers = inspect.active() or {}
+            registered_tasks = inspect.registered() or {}
+            stats = inspect.stats() or {}
             
             # Contar workers
             worker_count = len(active_workers)
@@ -43,7 +43,7 @@ class CeleryMonitor:
             active_tasks = sum(len(tasks) for tasks in active_workers.values())
             
             # Obtener información de colas
-            active_queues = inspect.active_queues(timeout=5) or {}
+            active_queues = inspect.active_queues() or {}
             queue_count = len(active_queues)
             
             self._last_check = datetime.utcnow()
@@ -52,7 +52,7 @@ class CeleryMonitor:
             for worker_name, tasks in active_workers.items():
                 for task in tasks:
                     task_name = task.get("name", "unknown")
-                    metrics.celery_tasks_active.labels(task_name=task_name).set(1)
+                    celery_tasks_active.labels(task_name=task_name).set(1)
             
             return {
                 "status": "healthy" if worker_count > 0 else "degraded",

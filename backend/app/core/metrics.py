@@ -225,6 +225,25 @@ circuit_breaker_opens_total = Counter(
     ['circuit_name']
 )
 
+# Telegram
+telegram_messages_sent_total = Counter(
+    'telegram_messages_sent_total',
+    'Total Telegram messages sent',
+    ['status', 'error_type']  # status: success, failed
+)
+
+telegram_message_send_duration_seconds = Histogram(
+    'telegram_message_send_duration_seconds',
+    'Telegram message send duration in seconds',
+    buckets=[0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0]
+)
+
+telegram_errors_total = Counter(
+    'telegram_errors_total',
+    'Total Telegram errors',
+    ['error_type']  # rate_limit, timeout, chat_not_found, etc.
+)
+
 # ===== INFORMACIÓN DEL SISTEMA =====
 app_info = Info(
     'app_info',
@@ -337,6 +356,19 @@ class MetricsMiddleware:
     def track_circuit_breaker_open(circuit_name: str):
         """Registrar apertura de circuit breaker"""
         circuit_breaker_opens_total.labels(circuit_name=circuit_name).inc()
+    
+    @staticmethod
+    def track_telegram_message(success: bool, error_type: Optional[str] = None, duration: Optional[float] = None):
+        """Registrar métricas de mensaje de Telegram"""
+        status = "success" if success else "failed"
+        error_label = error_type or "none"
+        telegram_messages_sent_total.labels(status=status, error_type=error_label).inc()
+        
+        if duration is not None:
+            telegram_message_send_duration_seconds.observe(duration)
+        
+        if not success and error_type:
+            telegram_errors_total.labels(error_type=error_type).inc()
 
 
 # Instancia global

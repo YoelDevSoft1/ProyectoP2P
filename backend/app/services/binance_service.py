@@ -12,6 +12,7 @@ Para operaciones reales, se requiere:
 """
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -30,32 +31,47 @@ class BinanceService:
 
     # Pares válidos soportados por Binance P2P (basado en disponibilidad real)
     # Formato: (asset, fiat) -> soportado
+    # NOTA: Binance P2P no soporta todos los pares. Esta lista se basa en disponibilidad real.
     VALID_PAIRS = {
-        # USDT - El más líquido y disponible en todas las monedas fiat
+        # USDT - El más líquido y disponible en la mayoría de monedas fiat LATAM
         ("USDT", "COP"): True,
         ("USDT", "VES"): True,
         ("USDT", "BRL"): True,
         ("USDT", "ARS"): True,
         ("USDT", "PEN"): True,
         ("USDT", "MXN"): True,
-        ("USDT", "CLP"): True,
-        ("USDT", "USD"): True,
-        # BTC - Disponible en monedas principales
+        # BTC - Disponible en monedas principales LATAM (limitado)
         ("BTC", "COP"): True,
         ("BTC", "VES"): True,
         ("BTC", "BRL"): True,
         ("BTC", "ARS"): True,
-        ("BTC", "USD"): True,
-        # ETH - Disponible en monedas principales
+        # ETH - Disponible en algunas monedas LATAM (muy limitado)
         ("ETH", "COP"): True,
         ("ETH", "VES"): True,
         ("ETH", "BRL"): True,
-        ("ETH", "ARS"): True,
-        ("ETH", "USD"): True,
-        # BNB - Limitado a algunas monedas
+        # BNB - Muy limitado, principalmente en monedas principales
         ("BNB", "COP"): True,
         ("BNB", "BRL"): True,
-        ("BNB", "USD"): True,
+    }
+    
+    # Pares conocidos como NO soportados (para evitar intentos)
+    INVALID_PAIRS = {
+        # ETH no está disponible en MXN, USD, PEN, ARS en muchos casos
+        ("ETH", "MXN"): True,
+        ("ETH", "USD"): True,
+        ("ETH", "PEN"): True,
+        ("ETH", "ARS"): False,  # Puede estar disponible, dejar que la API lo valide
+        # BNB muy limitado
+        ("BNB", "VES"): True,
+        ("BNB", "ARS"): True,
+        ("BNB", "PEN"): True,
+        ("BNB", "MXN"): True,
+        ("BNB", "CLP"): True,
+        # USD no está disponible en P2P (solo stablecoins como USDT)
+        ("USDT", "USD"): False,  # Puede haber confusión, pero no es común en P2P
+        ("BTC", "USD"): False,
+        ("ETH", "USD"): False,
+        ("BNB", "USD"): False,
     }
     
     # Assets soportados en Binance P2P
@@ -73,7 +89,7 @@ class BinanceService:
         self._client = httpx.AsyncClient(
             base_url=self.base_url,
             headers=self.headers,
-            timeout=httpx.Timeout(10.0),
+            timeout=httpx.Timeout(30.0),  # Aumentado para retries
         )
         self._price_cache: Dict[
             Tuple[str, str, str, Tuple[str, ...]],
@@ -82,6 +98,12 @@ class BinanceService:
         self._cache_ttl = timedelta(seconds=settings.P2P_PRICE_CACHE_SECONDS)
         # Cache de pares inválidos para evitar intentos repetidos
         self._invalid_pairs_cache: set = set()
+        
+        # Rate limiting: Binance P2P API permite ~10-20 requests por segundo
+        # Usar un semáforo para limitar solicitudes concurrentes
+        self._rate_limiter = asyncio.Semaphore(5)  # Máximo 5 solicitudes concurrentes
+        self._request_delay = 0.1  # 100ms entre solicitudes (10 req/s)
+        self._last_request_time: Optional[datetime] = None
 
     async def aclose(self) -> None:
         """Cerrar el cliente HTTP reutilizable."""
@@ -100,10 +122,22 @@ class BinanceService:
         """
         asset_upper = asset.upper()
         fiat_upper = fiat.upper()
+        pair_key = (asset_upper, fiat_upper)
         
-        # Verificar si está en cache de pares inválidos
-        if (asset_upper, fiat_upper) in self._invalid_pairs_cache:
+        # Verificar si está en cache de pares inválidos (aprendidos dinámicamente)
+        if pair_key in self._invalid_pairs_cache:
             return False
+        
+        # Verificar si está en la lista de pares conocidos como inválidos
+        if pair_key in self.INVALID_PAIRS:
+            is_invalid = self.INVALID_PAIRS[pair_key]
+            if is_invalid:
+                logger.debug(
+                    "Pair known to be invalid",
+                    asset=asset_upper,
+                    fiat=fiat_upper
+                )
+                return False
         
         # Verificar si el asset y fiat están en las listas soportadas
         if asset_upper not in self.SUPPORTED_ASSETS:
@@ -122,15 +156,23 @@ class BinanceService:
             )
             return False
         
-        # Verificar si el par específico está en la lista de pares válidos
-        # Si no está en la lista, asumimos que puede ser válido (para descubrimiento)
-        # pero lo verificaremos con la API
-        pair_key = (asset_upper, fiat_upper)
+        # Verificar si el par específico está en la lista de pares válidos conocidos
         if pair_key in self.VALID_PAIRS:
             return self.VALID_PAIRS[pair_key]
         
-        # Si no está en la lista, asumimos que puede ser válido
-        # La API nos dirá si no lo es
+        # Si no está en ninguna lista, permitir que se intente (para descubrimiento)
+        # pero la API nos dirá si no es válido y lo marcaremos
+        # Para assets menos comunes como ETH/BNB, ser más conservador
+        if asset_upper in ["ETH", "BNB"]:
+            # Para ETH y BNB, solo permitir si está explícitamente en VALID_PAIRS
+            logger.debug(
+                "Pair not in known valid pairs for less common asset",
+                asset=asset_upper,
+                fiat=fiat_upper
+            )
+            return False
+        
+        # Para USDT y BTC, permitir intentar (son los más líquidos)
         return True
     
     def mark_pair_as_invalid(self, asset: str, fiat: str):
@@ -238,70 +280,151 @@ class BinanceService:
             )
             return []
         
-        # Construir payload (asegurarse de que no haya valores None o vacíos inválidos)
+        # Construir payload (asegurarse de que no haya valores None que puedan causar problemas)
+        # Binance P2P API es sensible a valores None, así que los omitimos
         payload = {
             "asset": asset_upper,
             "fiat": fiat_upper,
             "merchantCheck": False,
             "page": 1,
-            "payTypes": pay_types or [],
-            "publisherType": None,
+            "payTypes": pay_types if pay_types else [],
             "rows": max(1, min(rows, 20)),  # Limitar rows entre 1 y 20
             "tradeType": trade_type_upper,
             "transAmount": "",  # Vacío es válido según la API
         }
+        
+        # Solo agregar publisherType si tiene un valor válido (no None)
+        # La API de Binance puede rechazar None en algunos campos
 
-        try:
-            response = await self._client.post("/adv/search", json=payload)
-            response.raise_for_status()
-            data = response.json()
-
-            if data.get("success"):
-                return data.get("data", [])
-
-            # Si la API retorna error "illegal parameter", marcar el par como inválido
-            error_code = data.get("code", "")
-            error_message = data.get("message", "")
+        # Rate limiting global usando Redis (compartido entre todos los workers)
+        from app.core.rate_limiter import binance_p2p_rate_limiter
+        
+        # Esperar hasta obtener un token del rate limiter global
+        if not await binance_p2p_rate_limiter.wait_for_token(tokens=1, max_wait=2.0):
+            logger.warning(
+                "Rate limiter timeout, proceeding anyway",
+                asset=asset_upper,
+                fiat=fiat_upper,
+                trade_type=trade_type_upper
+            )
+        
+        # Rate limiting local adicional con semáforo para evitar demasiadas solicitudes concurrentes
+        async with self._rate_limiter:
+            # Asegurar delay mínimo entre solicitudes
+            if self._last_request_time:
+                elapsed = (datetime.utcnow() - self._last_request_time).total_seconds()
+                if elapsed < self._request_delay:
+                    await asyncio.sleep(self._request_delay - elapsed)
             
-            if error_code == "000002" or "illegal parameter" in error_message.lower():
-                logger.warning(
-                    "Invalid pair detected by Binance API",
-                    asset=asset_upper,
-                    fiat=fiat_upper,
-                    trade_type=trade_type_upper,
-                    error_code=error_code,
-                    error_message=error_message
-                )
-                # Marcar como inválido para evitar futuros intentos
-                self.mark_pair_as_invalid(asset_upper, fiat_upper)
-                return []
+            # Retry logic para errores 429
+            max_retries = 3
+            base_delay = 2.0  # 2 segundos base (más conservador)
             
-            # Otro tipo de error, solo loguear
-            logger.error(
-                "Binance P2P API error",
-                asset=asset_upper,
-                fiat=fiat_upper,
-                trade_type=trade_type_upper,
-                response=data
-            )
-            return []
+            for attempt in range(max_retries):
+                try:
+                    self._last_request_time = datetime.utcnow()
+                    response = await self._client.post("/adv/search", json=payload)
+                    
+                    # Si recibimos 429, esperar y reintentar
+                    if response.status_code == 429:
+                        if attempt < max_retries - 1:
+                            # Exponential backoff: 1s, 2s, 4s
+                            delay = base_delay * (2 ** attempt)
+                            logger.warning(
+                                "Rate limited by Binance API, retrying",
+                                asset=asset_upper,
+                                fiat=fiat_upper,
+                                attempt=attempt + 1,
+                                delay=delay
+                            )
+                            await asyncio.sleep(delay)
+                            continue
+                        else:
+                            logger.error(
+                                "Rate limited by Binance API, max retries exceeded",
+                                asset=asset_upper,
+                                fiat=fiat_upper,
+                                status_code=429
+                            )
+                            return []
+                    
+                    response.raise_for_status()
+                    data = response.json()
 
-        except httpx.HTTPStatusError as exc:
-            logger.error(
-                "HTTP error fetching P2P ads",
-                asset=asset_upper,
-                fiat=fiat_upper,
-                status_code=exc.response.status_code,
-                error=str(exc)
-            )
-            return []
-        except Exception as exc:
-            logger.error(
-                "Error fetching P2P ads",
-                asset=asset_upper,
-                fiat=fiat_upper,
-                error=str(exc)
-            )
+                    if data.get("success"):
+                        ads_data = data.get("data", [])
+                        # Si no hay datos pero la respuesta fue exitosa, puede ser que el par no tenga liquidez
+                        if not ads_data:
+                            logger.debug(
+                                "No ads found for pair (may be low liquidity or unavailable)",
+                                asset=asset_upper,
+                                fiat=fiat_upper,
+                                trade_type=trade_type_upper
+                            )
+                        return ads_data
+
+                    # Si la API retorna error "illegal parameter", marcar el par como inválido
+                    error_code = data.get("code", "")
+                    error_message = data.get("message", "")
+                    
+                    if error_code == "000002" or "illegal parameter" in error_message.lower():
+                        logger.warning(
+                            "Invalid pair detected by Binance API - marking as invalid",
+                            asset=asset_upper,
+                            fiat=fiat_upper,
+                            trade_type=trade_type_upper,
+                            error_code=error_code,
+                            error_message=error_message,
+                            payload={k: v for k, v in payload.items() if v is not None}  # Log sin None
+                        )
+                        # Marcar como inválido para evitar futuros intentos
+                        self.mark_pair_as_invalid(asset_upper, fiat_upper)
+                        return []
+                    
+                    # Otro tipo de error, solo loguear
+                    logger.error(
+                        "Binance P2P API error",
+                        asset=asset_upper,
+                        fiat=fiat_upper,
+                        trade_type=trade_type_upper,
+                        response=data
+                    )
+                    return []
+
+                except httpx.HTTPStatusError as exc:
+                    # Si es 429 y no hemos agotado los reintentos, continuar el loop
+                    if exc.response.status_code == 429 and attempt < max_retries - 1:
+                        delay = base_delay * (2 ** attempt)
+                        logger.warning(
+                            "HTTP 429 error, retrying",
+                            asset=asset_upper,
+                            fiat=fiat_upper,
+                            attempt=attempt + 1,
+                            delay=delay
+                        )
+                        await asyncio.sleep(delay)
+                        continue
+                    
+                    logger.error(
+                        "HTTP error fetching P2P ads",
+                        asset=asset_upper,
+                        fiat=fiat_upper,
+                        status_code=exc.response.status_code,
+                        error=str(exc),
+                        attempt=attempt + 1
+                    )
+                    return []
+                except Exception as exc:
+                    logger.error(
+                        "Error fetching P2P ads",
+                        asset=asset_upper,
+                        fiat=fiat_upper,
+                        error=str(exc),
+                        attempt=attempt + 1
+                    )
+                    return []
+            
+            # Si llegamos aquí, se agotaron los reintentos
             return []
 
     async def get_best_price(

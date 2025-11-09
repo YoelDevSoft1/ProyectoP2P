@@ -172,16 +172,143 @@ class Settings(BaseSettings):
 
     # Análisis
     SPREAD_THRESHOLD: float = 0.5
-    # Assets soportados en Binance P2P (validados)
-    P2P_MONITORED_ASSETS: List[str] = Field(default_factory=lambda: ["USDT"])
-    # Fiats soportados en Binance P2P para LATAM (validados)
-    P2P_MONITORED_FIATS: List[str] = Field(default_factory=lambda: ["COP", "VES", "BRL", "ARS", "PEN", "MXN"])
+    # Assets soportados en Binance P2P (validados) - Reducido para evitar rate limiting
+    # Se parsea desde variable de entorno como string separado por comas o JSON array
+    P2P_MONITORED_ASSETS: str = Field(
+        default="USDT,BTC",
+        description="Assets monitoreados para P2P (separados por comas). Reducido para evitar rate limiting."
+    )
+    # Fiats soportados en Binance P2P para LATAM (validados) - Reducido para evitar rate limiting
+    P2P_MONITORED_FIATS: str = Field(
+        default="COP,VES,BRL,ARS",
+        description="Fiats monitoreados para P2P (separados por comas). Reducido para evitar rate limiting."
+    )
     P2P_ANALYSIS_ROWS: int = 20
     P2P_TOP_SPREADS: int = 3
     # Assets para arbitraje (solo los más líquidos)
-    ARBITRAGE_MONITORED_ASSETS: List[str] = Field(default_factory=lambda: ["USDT", "BTC", "ETH"])
+    ARBITRAGE_MONITORED_ASSETS: str = Field(
+        default="USDT,BTC,ETH",
+        description="Assets para arbitraje (separados por comas)"
+    )
     # Fiats para arbitraje (solo los más líquidos, sin USD que no está en P2P)
-    ARBITRAGE_MONITORED_FIATS: List[str] = Field(default_factory=lambda: ["COP", "VES", "BRL", "ARS", "PEN", "MXN"])
+    ARBITRAGE_MONITORED_FIATS: str = Field(
+        default="COP,VES,BRL,ARS",
+        description="Fiats para arbitraje (separados por comas)"
+    )
+    
+    @field_validator("P2P_MONITORED_ASSETS", mode="before")
+    @classmethod
+    def parse_p2p_assets(cls, v: Any) -> str:
+        """Parsear P2P_MONITORED_ASSETS desde variable de entorno"""
+        if v is None:
+            return "USDT,BTC"
+        if isinstance(v, list):
+            return ",".join(str(a).strip().upper() for a in v if a)
+        if isinstance(v, str):
+            # Si es JSON array, parsearlo
+            import json
+            v = v.strip()
+            if v.startswith("[") and v.endswith("]"):
+                try:
+                    parsed = json.loads(v)
+                    if isinstance(parsed, list):
+                        return ",".join(str(a).strip().upper() for a in parsed if a)
+                except (json.JSONDecodeError, ValueError):
+                    pass
+            # Si está vacío, usar default
+            if not v:
+                return "USDT,BTC"
+            return v
+        return "USDT,BTC"
+    
+    @field_validator("P2P_MONITORED_FIATS", mode="before")
+    @classmethod
+    def parse_p2p_fiats(cls, v: Any) -> str:
+        """Parsear P2P_MONITORED_FIATS desde variable de entorno"""
+        if v is None:
+            return "COP,VES,BRL,ARS"
+        if isinstance(v, list):
+            return ",".join(str(f).strip().upper() for f in v if f)
+        if isinstance(v, str):
+            import json
+            v = v.strip()
+            if v.startswith("[") and v.endswith("]"):
+                try:
+                    parsed = json.loads(v)
+                    if isinstance(parsed, list):
+                        return ",".join(str(f).strip().upper() for f in parsed if f)
+                except (json.JSONDecodeError, ValueError):
+                    pass
+            if not v:
+                return "COP,VES,BRL,ARS"
+            return v
+        return "COP,VES,BRL,ARS"
+    
+    @field_validator("ARBITRAGE_MONITORED_ASSETS", mode="before")
+    @classmethod
+    def parse_arbitrage_assets(cls, v: Any) -> str:
+        """Parsear ARBITRAGE_MONITORED_ASSETS desde variable de entorno"""
+        if v is None:
+            return "USDT,BTC,ETH"
+        if isinstance(v, list):
+            return ",".join(str(a).strip().upper() for a in v if a)
+        if isinstance(v, str):
+            import json
+            v = v.strip()
+            if v.startswith("[") and v.endswith("]"):
+                try:
+                    parsed = json.loads(v)
+                    if isinstance(parsed, list):
+                        return ",".join(str(a).strip().upper() for a in parsed if a)
+                except (json.JSONDecodeError, ValueError):
+                    pass
+            if not v:
+                return "USDT,BTC,ETH"
+            return v
+        return "USDT,BTC,ETH"
+    
+    @field_validator("ARBITRAGE_MONITORED_FIATS", mode="before")
+    @classmethod
+    def parse_arbitrage_fiats(cls, v: Any) -> str:
+        """Parsear ARBITRAGE_MONITORED_FIATS desde variable de entorno"""
+        if v is None:
+            return "COP,VES,BRL,ARS"
+        if isinstance(v, list):
+            return ",".join(str(f).strip().upper() for f in v if f)
+        if isinstance(v, str):
+            import json
+            v = v.strip()
+            if v.startswith("[") and v.endswith("]"):
+                try:
+                    parsed = json.loads(v)
+                    if isinstance(parsed, list):
+                        return ",".join(str(f).strip().upper() for f in parsed if f)
+                except (json.JSONDecodeError, ValueError):
+                    pass
+            if not v:
+                return "COP,VES,BRL,ARS"
+            return v
+        return "COP,VES,BRL,ARS"
+    
+    @property
+    def p2p_monitored_assets_list(self) -> List[str]:
+        """Lista de assets monitoreados para P2P"""
+        return [a.strip().upper() for a in self.P2P_MONITORED_ASSETS.split(",") if a.strip()]
+    
+    @property
+    def p2p_monitored_fiats_list(self) -> List[str]:
+        """Lista de fiats monitoreados para P2P"""
+        return [f.strip().upper() for f in self.P2P_MONITORED_FIATS.split(",") if f.strip()]
+    
+    @property
+    def arbitrage_monitored_assets_list(self) -> List[str]:
+        """Lista de assets monitoreados para arbitraje"""
+        return [a.strip().upper() for a in self.ARBITRAGE_MONITORED_ASSETS.split(",") if a.strip()]
+    
+    @property
+    def arbitrage_monitored_fiats_list(self) -> List[str]:
+        """Lista de fiats monitoreados para arbitraje"""
+        return [f.strip().upper() for f in self.ARBITRAGE_MONITORED_FIATS.split(",") if f.strip()]
     ARBITRAGE_TOP_OPPORTUNITIES: int = 5
     ARBITRAGE_MIN_LIQUIDITY_USDT: float = 100.0
     ARBITRAGE_MIN_PROFIT: float = 1.0
@@ -190,7 +317,8 @@ class Settings(BaseSettings):
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = 60
     RATE_LIMIT_BINANCE_API: int = 1200
-    P2P_PRICE_CACHE_SECONDS: int = 15
+    # Cache aumentado para reducir solicitudes (30 segundos = menos carga en API)
+    P2P_PRICE_CACHE_SECONDS: int = 30
     P2P_MIN_SURPLUS_USDT: float = 50.0
 
     # Entorno

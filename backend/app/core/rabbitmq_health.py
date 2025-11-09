@@ -8,7 +8,7 @@ import structlog
 from datetime import datetime
 
 from app.core.config import settings
-from app.core.metrics import metrics
+from app.core.metrics import rabbitmq_connection_status
 
 logger = structlog.get_logger()
 
@@ -71,7 +71,7 @@ class RabbitMQHealth:
             self._is_healthy = True
             self._last_check = datetime.utcnow()
             
-            metrics.rabbitmq_connection_status.set(1)
+            rabbitmq_connection_status.set(1)
             
             return {
                 "status": "healthy",
@@ -84,7 +84,7 @@ class RabbitMQHealth:
             self._is_healthy = False
             self._last_check = datetime.utcnow()
             
-            metrics.rabbitmq_connection_status.set(0)
+            rabbitmq_connection_status.set(0)
             
             return {
                 "status": "unhealthy",

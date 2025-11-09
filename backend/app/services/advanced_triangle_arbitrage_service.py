@@ -62,9 +62,10 @@ class AdvancedTriangleArbitrageService:
         self.SPOT_FEE = 0.001  # 0.1% Spot
         self.NETWORK_FEE_USDT = 1.0  # ~$1 USDT por transferencia
 
-        # Assets y fiats disponibles
-        self.ASSETS = ["USDT", "BTC", "ETH", "BNB", "BUSD"]
-        self.FIATS = ["COP", "VES", "ARS", "PEN", "BRL"]  # LATAM focus
+        # Assets y fiats disponibles (solo los más líquidos y validados)
+        # Usar los mismos que están en BinanceService para consistencia
+        self.ASSETS = ["USDT", "BTC", "ETH"]  # Removido BNB y BUSD (menos líquidos)
+        self.FIATS = ["COP", "VES", "BRL", "ARS"]  # LATAM focus (removido PEN y MXN menos líquidos)
 
         # Cache de precios para evitar llamadas repetidas
         self._price_cache: Dict[Tuple[str, str, str], Optional[float]] = {}

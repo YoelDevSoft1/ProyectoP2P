@@ -132,9 +132,9 @@ def task_prerun_handler(sender=None, task_id=None, task=None, args=None, kwargs=
     
     # Registrar métrica de tarea iniciada
     try:
-        from app.core.metrics import metrics
+        from app.core.metrics import metrics, celery_tasks_active
         metrics.track_celery_task(task.name, status="started")
-        metrics.celery_tasks_active.labels(task_name=task.name).inc()
+        celery_tasks_active.labels(task_name=task.name).inc()
     except Exception as e:
         logger.warning("Failed to track Celery task start", error=str(e))
 
@@ -147,9 +147,9 @@ def task_postrun_handler(sender=None, task_id=None, task=None, args=None, kwargs
     
     # Registrar métrica de tarea completada
     try:
-        from app.core.metrics import metrics
+        from app.core.metrics import metrics, celery_tasks_active
         metrics.track_celery_task(task.name, duration=duration, status="succeeded")
-        metrics.celery_tasks_active.labels(task_name=task.name).dec()
+        celery_tasks_active.labels(task_name=task.name).dec()
     except Exception as e:
         logger.warning("Failed to track Celery task completion", error=str(e))
 
@@ -165,9 +165,9 @@ def task_failure_handler(sender=None, task_id=None, exception=None, traceback=No
     
     # Registrar métrica de tarea fallida
     try:
-        from app.core.metrics import metrics
+        from app.core.metrics import metrics, celery_tasks_active
         metrics.track_celery_task(task_name, duration=duration, status="failed")
-        metrics.celery_tasks_active.labels(task_name=task_name).dec()
+        celery_tasks_active.labels(task_name=task_name).dec()
     except Exception as e:
         logger.warning("Failed to track Celery task failure", error=str(e))
 

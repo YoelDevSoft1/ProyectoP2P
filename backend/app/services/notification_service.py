@@ -19,16 +19,10 @@ class NotificationService:
     """
 
     def __init__(self):
-        self.telegram_enabled = settings.ENABLE_NOTIFICATIONS and settings.TELEGRAM_BOT_TOKEN
-        self.telegram_bot = None
-
-        if self.telegram_enabled:
-            try:
-                from telegram import Bot
-                self.telegram_bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
-            except ImportError:
-                logger.warning("python-telegram-bot not installed, Telegram notifications disabled")
-                self.telegram_enabled = False
+        # Usar el nuevo servicio mejorado de Telegram
+        from app.services.telegram_service import telegram_service
+        self.telegram_service = telegram_service
+        self.telegram_enabled = self.telegram_service.enabled
 
     async def send_p2p_opportunity_alert(
         self,
@@ -87,9 +81,25 @@ class NotificationService:
 ⚡ ¡Actúa rápido! Esta oportunidad puede desaparecer pronto.
 """
 
-        # Enviar por Telegram
+        # Enviar por Telegram con botones inline
         if self.telegram_enabled:
-            return await self._send_telegram_message(message)
+            # Crear botones inline para acción rápida
+            buttons = [
+                [
+                    {
+                        "text": "🔗 Abrir Binance P2P",
+                        "url": p2p_link
+                    }
+                ]
+            ]
+            reply_markup = self.telegram_service.create_inline_keyboard(buttons)
+            
+            return await self.telegram_service.send_message(
+                text=message,
+                parse_mode="Markdown",
+                reply_markup=reply_markup,
+                priority="high"
+            )
 
         # Si Telegram no está disponible, log
         logger.info("P2P opportunity alert", opportunity=opportunity)
@@ -134,9 +144,34 @@ class NotificationService:
 👉 [P2P {arbitrage_data['fiat']}]({self._generate_p2p_link(arbitrage_data['asset'], arbitrage_data['fiat'], 'SELL')})
 """
 
-        # Enviar
+        # Enviar con botones inline
         if self.telegram_enabled:
-            return await self._send_telegram_message(message)
+            # Crear botones para acciones rápidas
+            buttons = []
+            if strategy == "spot_to_p2p":
+                buttons.append([
+                    {
+                        "text": "📈 Binance Spot",
+                        "url": f"https://www.binance.com/en/trade/{arbitrage_data.get('asset', 'USDT')}_USDC"
+                    },
+                    {
+                        "text": "💰 Binance P2P",
+                        "url": self._generate_p2p_link(
+                            arbitrage_data.get('asset', 'USDT'),
+                            arbitrage_data.get('fiat', 'COP'),
+                            'SELL'
+                        )
+                    }
+                ])
+            
+            reply_markup = self.telegram_service.create_inline_keyboard(buttons) if buttons else None
+            
+            return await self.telegram_service.send_message(
+                text=message,
+                parse_mode="Markdown",
+                reply_markup=reply_markup,
+                priority="high"
+            )
 
         logger.info("Arbitrage alert", data=arbitrage_data)
         return True
@@ -212,7 +247,11 @@ class NotificationService:
         message = "\n".join(lines)
 
         if self.telegram_enabled:
-            return await self._send_telegram_message(message)
+            return await self.telegram_service.send_message(
+                text=message,
+                parse_mode="Markdown",
+                priority="normal"
+            )
 
         logger.info("Arbitrage digest", opportunities=opportunities)
         return True
@@ -325,7 +364,11 @@ class NotificationService:
         message = "\n".join(lines)
 
         if self.telegram_enabled:
-            return await self._send_telegram_message(message)
+            return await self.telegram_service.send_message(
+                text=message,
+                parse_mode="Markdown",
+                priority="normal"
+            )
 
         logger.info("Spread digest", opportunities=selected)
         return True
@@ -366,7 +409,11 @@ class NotificationService:
 """
 
         if self.telegram_enabled:
-            return await self._send_telegram_message(message)
+            return await self.telegram_service.send_message(
+                text=message,
+                parse_mode="Markdown",
+                priority="high"
+            )
 
         logger.info("Trade executed alert", trade_id=trade_id)
         return True
@@ -401,7 +448,11 @@ class NotificationService:
             message += f"\n📊 Contexto: {json.dumps(context, indent=2)}"
 
         if self.telegram_enabled:
-            return await self._send_telegram_message(message, priority="high")
+            return await self.telegram_service.send_message(
+                text=message,
+                parse_mode="Markdown",
+                priority="critical"
+            )
 
         logger.error("Critical error alert", error_type=error_type, message=error_message)
         return True
@@ -442,7 +493,11 @@ class NotificationService:
 """
 
         if self.telegram_enabled:
-            return await self._send_telegram_message(message)
+            return await self.telegram_service.send_message(
+                text=message,
+                parse_mode="Markdown",
+                priority="normal"
+            )
 
         logger.info("Daily summary sent", data=summary_data)
         return True
@@ -472,39 +527,6 @@ class NotificationService:
 
         return f"{base_url}/{params}"
 
-    async def _send_telegram_message(
-        self,
-        message: str,
-        priority: str = "normal"
-    ) -> bool:
-        """
-        Enviar mensaje por Telegram.
-
-        Args:
-            message: Mensaje a enviar
-            priority: normal, high
-
-        Returns:
-            True si se envió exitosamente
-        """
-        if not self.telegram_enabled or not self.telegram_bot:
-            return False
-
-        try:
-            # Enviar mensaje con formato Markdown
-            await self.telegram_bot.send_message(
-                chat_id=settings.TELEGRAM_CHAT_ID,
-                text=message,
-                parse_mode='Markdown',
-                disable_web_page_preview=False
-            )
-
-            logger.info("Telegram notification sent", priority=priority)
-            return True
-
-        except Exception as e:
-            logger.error("Error sending Telegram notification", error=str(e))
-            return False
 
     async def test_notification(self) -> bool:
         """
@@ -529,7 +551,11 @@ class NotificationService:
 """.format(time=datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'))
 
         if self.telegram_enabled:
-            return await self._send_telegram_message(message)
+            return await self.telegram_service.send_message(
+                text=message,
+                parse_mode="Markdown",
+                priority="normal"
+            )
 
         logger.info("Test notification", status="ok")
         return True

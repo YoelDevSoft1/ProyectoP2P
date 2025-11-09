@@ -33,6 +33,63 @@ const api = {
     return data
   },
 
+  // Health Checks Individuales
+  getDatabaseHealth: async () => {
+    try {
+      const { data } = await axiosInstance.get('/health/db')
+      return data
+    } catch (error: any) {
+      console.error('Error fetching database health:', error)
+      return { status: 'error', error: error.message }
+    }
+  },
+
+  getRedisHealth: async () => {
+    try {
+      const { data } = await axiosInstance.get('/health/redis')
+      return data
+    } catch (error: any) {
+      console.error('Error fetching Redis health:', error)
+      return { status: 'error', error: error.message }
+    }
+  },
+
+  getRabbitMQHealth: async () => {
+    try {
+      const { data } = await axiosInstance.get('/health/rabbitmq')
+      return data
+    } catch (error: any) {
+      console.error('Error fetching RabbitMQ health:', error)
+      return { status: 'error', error: error.message }
+    }
+  },
+
+  getCeleryHealth: async () => {
+    try {
+      const { data } = await axiosInstance.get('/health/celery')
+      return data
+    } catch (error: any) {
+      console.error('Error fetching Celery health:', error)
+      return { status: 'error', error: error.message }
+    }
+  },
+
+  // Métricas Prometheus (texto plano)
+  getPrometheusMetrics: async () => {
+    try {
+      const { data } = await axiosInstance.get('/metrics', {
+        responseType: 'text',
+        headers: {
+          'Accept': 'text/plain',
+        },
+      })
+      return data
+    } catch (error: any) {
+      console.error('Error fetching Prometheus metrics:', error)
+      return null
+    }
+  },
+
   // Prices
   getCurrentPrices: async (asset = 'USDT', fiat?: string) => {
     try {
