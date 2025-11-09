@@ -261,11 +261,7 @@ export default function Dashboard() {
               {/* Risk Management Tab */}
               {activeTab === 'risk' && (
                 <div className="space-y-8">
-                  <RiskMetricsDashboard
-                    returns={[]} // TODO: Get real returns data from API
-                    equityCurve={[]} // TODO: Get real equity curve from API
-                    trades={[]} // TODO: Get real trades data from API
-                  />
+                  <RiskMetricsDashboard />
 
                   {/* Info Message */}
                   <div className="bg-blue-900/30 border border-blue-500/50 rounded-xl p-6">
