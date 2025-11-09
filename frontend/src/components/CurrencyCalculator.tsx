@@ -84,12 +84,20 @@ export function CurrencyCalculator({
 
   // Auto-cambiar dirección cuando se cambian las monedas
   useEffect(() => {
+    // Si ambas monedas son USDT, cambiar una de ellas
+    if (fromCurrency === 'USDT' && toCurrency === 'USDT') {
+      setFromCurrency('COP')
+      setDirection('sell')
+      return
+    }
+    
+    // Si fromCurrency es USDT, el usuario está vendiendo USDT (recibe COP/VES)
     if (fromCurrency === 'USDT') {
       setDirection('sell')
-      if (toCurrency === 'USDT') setToCurrency('COP')
-    } else if (toCurrency === 'USDT') {
+    } 
+    // Si toCurrency es USDT, el usuario está comprando USDT (paga COP/VES)
+    else if (toCurrency === 'USDT') {
       setDirection('buy')
-      if (fromCurrency === 'USDT') setFromCurrency('COP')
     }
   }, [fromCurrency, toCurrency])
 

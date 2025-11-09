@@ -73,16 +73,16 @@ app = FastAPI(
 )
 
 # Middleware CORS
-# En desarrollo, permitir todos los orígenes (necesario para ngrok y Vercel)
-cors_origins = settings.BACKEND_CORS_ORIGINS
-# Si está en desarrollo o producción, permitir todos los orígenes para flexibilidad
+# Usar la propiedad cors_origins_list que procesa correctamente el valor
+cors_origins = settings.cors_origins_list
+# Si está en desarrollo, permitir todos los orígenes (necesario para ngrok y Vercel)
 if settings.ENVIRONMENT == "development" or "*" in cors_origins:
     cors_origins = ["*"]
 else:
     # Agregar Vercel si no está ya incluido
     vercel_origin = "https://proyecto-p2p.vercel.app"
     if vercel_origin not in cors_origins:
-        cors_origins = list(cors_origins) + [vercel_origin]
+        cors_origins = cors_origins + [vercel_origin]
 
 app.add_middleware(
     CORSMiddleware,

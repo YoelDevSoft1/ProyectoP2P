@@ -75,48 +75,62 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
-    # CORS - El validator procesará strings, listas o None y retornará siempre List[str]
-    BACKEND_CORS_ORIGINS: List[str] = Field(
-        default=["http://localhost:3000", "https://proyecto-p2p.vercel.app"],
-        description="Lista de orígenes permitidos para CORS (puede ser string separada por comas, JSON, o lista)"
+    # CORS - Usar modelo personalizado para evitar problemas con parsing automático
+    # El validator procesará strings, listas o None y retornará siempre List[str]
+    BACKEND_CORS_ORIGINS: str = Field(
+        default="http://localhost:3000,https://proyecto-p2p.vercel.app",
+        description="Lista de orígenes permitidos para CORS (separados por comas o JSON array)"
     )
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
-    def assemble_cors_origins(cls, v: Any) -> List[str]:
+    def assemble_cors_origins(cls, v: Any) -> str:
         """
-        Parsear BACKEND_CORS_ORIGINS desde string separada por comas, JSON, o lista.
-        Maneja todos los casos posibles y siempre retorna una lista válida.
+        Normalizar BACKEND_CORS_ORIGINS a string antes de procesarlo.
+        Esto evita que Pydantic intente parsear valores vacíos como JSON.
+        """
+        default_origins = "http://localhost:3000,https://proyecto-p2p.vercel.app"
+        
+        # Si es None, retornar default como string
+        if v is None:
+            return default_origins
+        
+        # Si ya es string, verificar si está vacío
+        if isinstance(v, str):
+            v = v.strip()
+            if not v or v == "":
+                return default_origins
+            # Retornar el string tal cual (será procesado después)
+            return v
+        
+        # Si es lista, convertir a string separado por comas
+        if isinstance(v, list):
+            if not v or len(v) == 0:
+                return default_origins
+            return ",".join(str(o).strip() for o in v if str(o) and str(o).strip())
+        
+        # Cualquier otro tipo, convertir a string
+        return str(v) if v else default_origins
+    
+    @property
+    def cors_origins_list(self) -> List[str]:
+        """
+        Propiedad que retorna BACKEND_CORS_ORIGINS como lista procesada.
+        Esto se usa en lugar de acceder directamente a BACKEND_CORS_ORIGINS.
         """
         import json
         
         default_origins = ["http://localhost:3000", "https://proyecto-p2p.vercel.app"]
+        cors_str = self.BACKEND_CORS_ORIGINS.strip()
+        
+        if not cors_str:
+            return default_origins
         
         try:
-            # Si es None o vacío, usar valores por defecto
-            if v is None:
-                return default_origins
-            
-            # Si es una lista, procesarla directamente
-            if isinstance(v, list):
-                if not v:
-                    return default_origins
-                origins = [str(o).strip() for o in v if str(o) and str(o).strip()]
-                if not origins:
-                    return default_origins
-                if any("*" in str(o) or "ngrok" in str(o).lower() for o in origins):
-                    return ["*"]
-                return origins
-            
-            # Si es una cadena
-            if isinstance(v, str):
-                v = v.strip()
-                if not v:
-                    return default_origins
-                
-                # Intentar parsear como JSON primero
+            # Intentar parsear como JSON si parece un array JSON
+            if cors_str.startswith("[") and cors_str.endswith("]"):
                 try:
-                    parsed = json.loads(v)
+                    parsed = json.loads(cors_str)
                     if isinstance(parsed, list):
                         origins = [str(o).strip() for o in parsed if str(o) and str(o).strip()]
                         if not origins:
@@ -125,22 +139,17 @@ class Settings(BaseSettings):
                             return ["*"]
                         return origins
                 except (json.JSONDecodeError, ValueError, TypeError):
-                    # No es JSON válido, continuar con parsing como string separada por comas
                     pass
-                
-                # Tratar como string separada por comas
-                origins = [i.strip() for i in v.split(",") if i.strip()]
-                if not origins:
-                    return default_origins
-                if "*" in origins or any("ngrok" in o.lower() for o in origins):
-                    return ["*"]
-                return origins
             
-            # Si es otro tipo no esperado, usar valores por defecto
-            return default_origins
+            # Tratar como string separada por comas
+            origins = [i.strip() for i in cors_str.split(",") if i.strip()]
+            if not origins:
+                return default_origins
+            if "*" in origins or any("ngrok" in o.lower() for o in origins):
+                return ["*"]
+            return origins
             
         except Exception:
-            # En caso de cualquier error inesperado, retornar valores por defecto
             return default_origins
 
     # Logging
