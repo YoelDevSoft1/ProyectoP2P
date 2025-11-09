@@ -745,14 +745,34 @@ def send_notification(title: str, message: str, priority: str = "medium"):
         return {"status": "skipped", "reason": "notifications_disabled"}
 
     try:
-        # TODO: Implementar envío por Telegram
-        # TODO: Implementar envío por email
-
-        logger.info("Notification sent", title=title, priority=priority)
-        return {"status": "success"}
+        from app.services.notification_service import NotificationService
+        
+        # Crear instancia del servicio
+        notif_service = NotificationService()
+        
+        # Formatear mensaje con título
+        formatted_message = f"*{title}*\n\n{message}"
+        
+        # Enviar por Telegram de forma asíncrona
+        async def _send_async():
+            return await notif_service.telegram_service.send_message(
+                text=formatted_message,
+                parse_mode="Markdown",
+                priority=priority
+            )
+        
+        # Ejecutar de forma segura en el event loop de Celery
+        result = run_async_task_safe(_send_async)
+        
+        if result:
+            logger.info("Notification sent", title=title, priority=priority)
+            return {"status": "success", "method": "telegram"}
+        else:
+            logger.warning("Notification failed to send", title=title, priority=priority)
+            return {"status": "error", "error": "Failed to send via Telegram"}
 
     except Exception as e:
-        logger.error("Error sending notification", error=str(e))
+        logger.error("Error sending notification", error=str(e), title=title)
         return {"status": "error", "error": str(e)}
 
 

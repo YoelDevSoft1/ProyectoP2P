@@ -116,12 +116,17 @@ class TelegramService:
             from telegram import Bot
             from telegram.error import TelegramError
             
-            self.bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
+            # Crear instancia del bot con timeout explícito
+            self.bot = Bot(
+                token=settings.TELEGRAM_BOT_TOKEN,
+                request=None,  # Usar request por defecto
+            )
             
             # Parsear chat_ids (puede ser uno o múltiples separados por comas)
             chat_id_str = settings.TELEGRAM_CHAT_ID or ""
             if chat_id_str:
-                self.chat_ids = [cid.strip() for cid in chat_id_str.split(",") if cid.strip()]
+                # Convertir chat_ids a string para asegurar compatibilidad
+                self.chat_ids = [str(cid.strip()) for cid in chat_id_str.split(",") if cid.strip()]
             else:
                 logger.warning("Telegram disabled: TELEGRAM_CHAT_ID not configured")
                 return
@@ -131,13 +136,24 @@ class TelegramService:
                 return
             
             self.enabled = True
-            logger.info("Telegram service initialized", chat_ids_count=len(self.chat_ids))
+            logger.info(
+                "Telegram service initialized",
+                chat_ids_count=len(self.chat_ids),
+                chat_ids=self.chat_ids
+            )
             
-        except ImportError:
-            logger.warning("python-telegram-bot not installed, Telegram notifications disabled")
+        except ImportError as e:
+            logger.warning(
+                "python-telegram-bot not installed, Telegram notifications disabled",
+                error=str(e)
+            )
             self.enabled = False
         except Exception as e:
-            logger.error("Error initializing Telegram service", error=str(e))
+            logger.error(
+                "Error initializing Telegram service",
+                error=str(e),
+                error_type=type(e).__name__
+            )
             self.enabled = False
     
     async def health_check(self) -> bool:

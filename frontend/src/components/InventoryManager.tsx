@@ -26,7 +26,7 @@ export function InventoryManager() {
         return data
       } catch (error) {
         console.error('Error fetching spot balances:', error)
-        return { balances: [] }
+        return { balances: {}, total_assets: 0 }
       }
     },
     refetchInterval: 30000, // Actualizar cada 30 segundos
@@ -56,7 +56,25 @@ export function InventoryManager() {
 
   // Procesar datos reales
   const processInventoryData = (): InventoryData[] => {
-    const balances = spotBalances?.balances || []
+    // El backend devuelve balances como un objeto { "USDT": 100.0, "BTC": 0.5 }
+    // Necesitamos manejar tanto el formato de objeto como el de array por seguridad
+    let balancesObj: Record<string, number> = {}
+    
+    if (spotBalances?.balances) {
+      if (Array.isArray(spotBalances.balances)) {
+        // Si es un array, convertirlo a objeto
+        balancesObj = (spotBalances.balances as any[]).reduce((acc: Record<string, number>, b: any) => {
+          if (b.asset && (b.free !== undefined || b.amount !== undefined)) {
+            acc[b.asset] = parseFloat(b.free || b.amount || '0')
+          }
+          return acc
+        }, {})
+      } else if (typeof spotBalances.balances === 'object') {
+        // Si ya es un objeto, usarlo directamente
+        balancesObj = spotBalances.balances as Record<string, number>
+      }
+    }
+    
     const trades = pendingTrades?.trades || []
     const prices = currentPrices || {}
 
@@ -84,35 +102,31 @@ export function InventoryManager() {
     // Procesar balances y crear inventario
     const inventory: InventoryData[] = []
     
-    // USDT
-    const usdtBalance = balances.find((b: any) => b.asset === 'USDT')
-    if (usdtBalance) {
-      const available = parseFloat(usdtBalance.free || '0')
-      const reserved_usdt = reserved.USDT || 0
-      inventory.push({
-        currency: 'USDT',
-        available: available - reserved_usdt,
-        reserved: reserved_usdt,
-        total: available,
-        value_usd: available,
-        trend: 'stable',
-      })
-    } else {
-      // Si no hay balance de USDT, mostrar 0 pero no reservado
-      inventory.push({
-        currency: 'USDT',
-        available: 0,
-        reserved: reserved.USDT || 0,
-        total: reserved.USDT || 0,
-        value_usd: reserved.USDT || 0,
-        trend: 'stable',
-      })
-    }
+    // USDT - obtener del objeto de balances
+    const usdtBalance = balancesObj['USDT'] || 0
+    const reserved_usdt = reserved.USDT || 0
+    inventory.push({
+      currency: 'USDT',
+      available: Math.max(0, usdtBalance - reserved_usdt),
+      reserved: reserved_usdt,
+      total: usdtBalance,
+      value_usd: usdtBalance,
+      trend: 'stable',
+    })
 
     // COP - Calcular desde precios
-    const copPrice = prices.COP?.sell_price || 4000 // Precio por defecto si no hay datos
+    // prices puede tener estructura: { COP: { sell_price: 4000 }, VES: { sell_price: 1600000 } }
+    // o puede ser un objeto con diferentes propiedades
+    let copPrice = 4000 // Precio por defecto
+    if (prices && typeof prices === 'object') {
+      if (prices.COP && typeof prices.COP === 'object' && 'sell_price' in prices.COP) {
+        copPrice = prices.COP.sell_price
+      } else if ('COP' in prices && typeof prices.COP === 'number') {
+        copPrice = prices.COP
+      }
+    }
     const copReserved = reserved.COP || 0
-    const copValueUsd = copReserved / copPrice
+    const copValueUsd = copPrice > 0 ? copReserved / copPrice : 0
     inventory.push({
       currency: 'COP',
       available: 0, // No tenemos balance de COP en spot
@@ -123,9 +137,16 @@ export function InventoryManager() {
     })
 
     // VES - Calcular desde precios
-    const vesPrice = prices.VES?.sell_price || 1600000 // Precio por defecto si no hay datos
+    let vesPrice = 1600000 // Precio por defecto
+    if (prices && typeof prices === 'object') {
+      if (prices.VES && typeof prices.VES === 'object' && 'sell_price' in prices.VES) {
+        vesPrice = prices.VES.sell_price
+      } else if ('VES' in prices && typeof prices.VES === 'number') {
+        vesPrice = prices.VES
+      }
+    }
     const vesReserved = reserved.VES || 0
-    const vesValueUsd = vesReserved / vesPrice
+    const vesValueUsd = vesPrice > 0 ? vesReserved / vesPrice : 0
     inventory.push({
       currency: 'VES',
       available: 0, // No tenemos balance de VES en spot
