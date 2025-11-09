@@ -17,14 +17,20 @@ import {
 import api from '@/lib/api'
 import { TradeStats } from '@/types/prices'
 
+interface CurrencyStats {
+  count: number
+  volume: number
+  profit: number
+}
+
 export function AdvancedMetrics() {
-  const { data: stats } = useQuery({
+  const { data: stats } = useQuery<TradeStats>({
     queryKey: ['trade-stats-advanced'],
     queryFn: () => api.getTradeStats(30), // Últimos 30 días
     refetchInterval: 30000,
   })
 
-  const { data: todayStats } = useQuery({
+  const { data: todayStats } = useQuery<TradeStats>({
     queryKey: ['trade-stats-today'],
     queryFn: () => api.getTradeStats(1), // Hoy
     refetchInterval: 10000,
@@ -201,57 +207,62 @@ export function AdvancedMetrics() {
       {/* Breakdown por Moneda */}
       {stats.by_currency && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {Object.entries(stats.by_currency).map(([currency, data]) => (
-            <div
-              key={currency}
-              className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-white">
-                  {currency === 'COP' ? '🇨🇴 Colombia (COP)' : '🇻🇪 Venezuela (VES)'}
-                </h3>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-400">Profit:</span>
-                  <span className="text-lg font-bold text-green-400">${data.profit.toFixed(2)}</span>
+          {Object.entries(stats.by_currency).map(([currency, data]) => {
+            // Tipo explícito para data basado en TradeStats.by_currency
+            const currencyData = data as CurrencyStats
+            
+            return (
+              <div
+                key={currency}
+                className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-xl p-6"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-white">
+                    {currency === 'COP' ? '🇨🇴 Colombia (COP)' : '🇻🇪 Venezuela (VES)'}
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-400">Profit:</span>
+                    <span className="text-lg font-bold text-green-400">${currencyData.profit.toFixed(2)}</span>
+                  </div>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <p className="text-xs text-gray-400 mb-1">Operaciones</p>
-                  <p className="text-xl font-bold text-white">{data.count}</p>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">Operaciones</p>
+                    <p className="text-xl font-bold text-white">{currencyData.count}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">Volumen</p>
+                    <p className="text-xl font-bold text-white">{currencyData.volume.toFixed(0)} USDT</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">Avg Profit</p>
+                    <p className="text-xl font-bold text-green-400">
+                      ${currencyData.count > 0 ? (currencyData.profit / currencyData.count).toFixed(2) : '0.00'}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-400 mb-1">Volumen</p>
-                  <p className="text-xl font-bold text-white">{data.volume.toFixed(0)} USDT</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400 mb-1">Avg Profit</p>
-                  <p className="text-xl font-bold text-green-400">
-                    ${data.count > 0 ? (data.profit / data.count).toFixed(2) : '0.00'}
-                  </p>
-                </div>
-              </div>
 
-              {/* Barra de progreso visual */}
-              <div className="mt-4">
-                <div className="flex justify-between text-xs text-gray-400 mb-1">
-                  <span>Rendimiento</span>
-                  <span>{data.count > 0 ? ((data.profit / stats.total_profit) * 100).toFixed(1) : 0}%</span>
-                </div>
-                <div className="w-full bg-gray-700 rounded-full h-2">
-                  <div
-                    className={`h-2 rounded-full ${
-                      currency === 'COP' ? 'bg-blue-500' : 'bg-yellow-500'
-                    }`}
-                    style={{
-                      width: `${data.count > 0 ? (data.profit / stats.total_profit) * 100 : 0}%`,
-                    }}
-                  />
+                {/* Barra de progreso visual */}
+                <div className="mt-4">
+                  <div className="flex justify-between text-xs text-gray-400 mb-1">
+                    <span>Rendimiento</span>
+                    <span>{currencyData.count > 0 ? ((currencyData.profit / stats.total_profit) * 100).toFixed(1) : 0}%</span>
+                  </div>
+                  <div className="w-full bg-gray-700 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full ${
+                        currency === 'COP' ? 'bg-blue-500' : 'bg-yellow-500'
+                      }`}
+                      style={{
+                        width: `${currencyData.count > 0 ? (currencyData.profit / stats.total_profit) * 100 : 0}%`,
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
