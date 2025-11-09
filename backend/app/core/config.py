@@ -172,12 +172,16 @@ class Settings(BaseSettings):
 
     # Análisis
     SPREAD_THRESHOLD: float = 0.5
+    # Assets soportados en Binance P2P (validados)
     P2P_MONITORED_ASSETS: List[str] = Field(default_factory=lambda: ["USDT"])
-    P2P_MONITORED_FIATS: List[str] = Field(default_factory=lambda: ["COP", "VES", "BRL", "ARS", "CLP", "PEN", "MXN"])
+    # Fiats soportados en Binance P2P para LATAM (validados)
+    P2P_MONITORED_FIATS: List[str] = Field(default_factory=lambda: ["COP", "VES", "BRL", "ARS", "PEN", "MXN"])
     P2P_ANALYSIS_ROWS: int = 20
     P2P_TOP_SPREADS: int = 3
+    # Assets para arbitraje (solo los más líquidos)
     ARBITRAGE_MONITORED_ASSETS: List[str] = Field(default_factory=lambda: ["USDT", "BTC", "ETH"])
-    ARBITRAGE_MONITORED_FIATS: List[str] = Field(default_factory=lambda: ["USD", "COP", "VES", "BRL", "ARS", "CLP", "PEN", "MXN"])
+    # Fiats para arbitraje (solo los más líquidos, sin USD que no está en P2P)
+    ARBITRAGE_MONITORED_FIATS: List[str] = Field(default_factory=lambda: ["COP", "VES", "BRL", "ARS", "PEN", "MXN"])
     ARBITRAGE_TOP_OPPORTUNITIES: int = 5
     ARBITRAGE_MIN_LIQUIDITY_USDT: float = 100.0
     ARBITRAGE_MIN_PROFIT: float = 1.0

@@ -43,27 +43,29 @@ export function PriceChart({ currency, initialData }: PriceChartProps) {
   const rawData = historyData?.history || initialData || []
   const shouldShowTime = rawData.length < 50
   
-  const chartData: ChartDataPoint[] = rawData.map((item: any): ChartDataPoint | null => {
-    const date = new Date(item.timestamp || item.date)
-    // El backend devuelve bid (compra) y ask (venta)
-    // bid = precio al que compramos (buy), ask = precio al que vendemos (sell)
-    const buyPrice = item.bid || item.buy_price || item.avg || item.value || 0
-    const sellPrice = item.ask || item.sell_price || item.avg || item.value || 0
-    const value = priceType === 'buy' ? buyPrice : sellPrice
-    
-    if (value <= 0) return null
-    
-    return {
-      date: shouldShowTime
-        ? date.toLocaleDateString('es', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-        : date.toLocaleDateString('es', { month: 'short', day: 'numeric' }),
-      timestamp: date.getTime(),
-      value,
-      buy_price: buyPrice,
-      sell_price: sellPrice,
-      spread: item.spread,
-    }
-  }).filter((item): item is ChartDataPoint => item !== null)
+  const chartData: ChartDataPoint[] = rawData
+    .map((item: any): ChartDataPoint | null => {
+      const date = new Date(item.timestamp || item.date)
+      // El backend devuelve bid (compra) y ask (venta)
+      // bid = precio al que compramos (buy), ask = precio al que vendemos (sell)
+      const buyPrice = item.bid || item.buy_price || item.avg || item.value || 0
+      const sellPrice = item.ask || item.sell_price || item.avg || item.value || 0
+      const value = priceType === 'buy' ? buyPrice : sellPrice
+      
+      if (value <= 0) return null
+      
+      return {
+        date: shouldShowTime
+          ? date.toLocaleDateString('es', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+          : date.toLocaleDateString('es', { month: 'short', day: 'numeric' }),
+        timestamp: date.getTime(),
+        value,
+        buy_price: buyPrice,
+        sell_price: sellPrice,
+        spread: item.spread,
+      }
+    })
+    .filter((item: ChartDataPoint | null): item is ChartDataPoint => item !== null)
 
   // Calcular tendencia
   const trend = chartData.length >= 2
