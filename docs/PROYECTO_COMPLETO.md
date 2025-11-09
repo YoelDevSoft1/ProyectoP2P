@@ -137,8 +137,9 @@ curl http://localhost:8000/api/v1/prices/current
 ```
 ProyectoP2P/
 ├── README.md                          # Documentación principal
-├── QUICKSTART.md                      # Guía de inicio rápido
-├── PROYECTO_COMPLETO.md              # Este archivo
+├── docs/
+│   ├── QUICKSTART.md                  # Guía de inicio rápido
+│   └── PROYECTO_COMPLETO.md          # Este archivo
 ├── .env.example                       # Plantilla de variables
 ├── .env                              # Tu configuración (NO commitear)
 ├── .gitignore                        # Archivos a ignorar en Git
@@ -311,9 +312,9 @@ Razones:
 ## 🆘 Soporte y Recursos
 
 ### Documentación
-- **[README.md](README.md)** - Visión general
+- **[README.md](../README.md)** - Visión general
 - **[QUICKSTART.md](QUICKSTART.md)** - Inicio rápido detallado
-- **[docs/CONSIDERACIONES_IMPORTANTES.md](docs/CONSIDERACIONES_IMPORTANTES.md)** - Advertencias y mejores prácticas
+- **[CONSIDERACIONES_IMPORTANTES.md](CONSIDERACIONES_IMPORTANTES.md)** - Advertencias y mejores prácticas
 
 ### APIs Externas
 - Binance API Docs: https://binance-docs.github.io/apidocs/

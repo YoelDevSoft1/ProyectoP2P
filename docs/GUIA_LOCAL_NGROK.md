@@ -37,7 +37,7 @@ uvicorn      0.27.0
 
 ```bash
 # Desde la raíz del proyecto
-start-backend.bat
+scripts\start-backend.bat
 ```
 
 **Espera a ver:**
@@ -50,7 +50,7 @@ INFO:     Uvicorn running on http://0.0.0.0:8000
 
 ```bash
 # Desde la raíz del proyecto
-start-worker.bat
+scripts\start-worker.bat
 ```
 
 **Espera a ver:**
@@ -67,7 +67,7 @@ start-worker.bat
 
 ```bash
 # Desde la raíz del proyecto
-start-beat.bat
+scripts\start-beat.bat
 ```
 
 **Espera a ver:**

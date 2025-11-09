@@ -2,9 +2,9 @@
 Configuración central de la aplicación.
 Lee variables de entorno y proporciona configuración tipada.
 """
-from typing import Dict, List, Literal
+from typing import Any, Dict, List, Literal, Union
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import validator, Field
+from pydantic import field_validator, Field
 
 
 class Settings(BaseSettings):
@@ -13,7 +13,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        case_sensitive=False
+        case_sensitive=False,
+        env_ignore_empty=True,
+        extra="ignore"
     )
 
     # Información del proyecto
@@ -73,23 +75,73 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
-    # CORS
-    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000", "https://proyecto-p2p.vercel.app"]
+    # CORS - El validator procesará strings, listas o None y retornará siempre List[str]
+    BACKEND_CORS_ORIGINS: List[str] = Field(
+        default=["http://localhost:3000", "https://proyecto-p2p.vercel.app"],
+        description="Lista de orígenes permitidos para CORS (puede ser string separada por comas, JSON, o lista)"
+    )
 
-    @validator("BACKEND_CORS_ORIGINS", pre=True)
-    def assemble_cors_origins(cls, v):
-        if isinstance(v, str):
-            origins = [i.strip() for i in v.split(",")]
-            # Si contiene "*" o está en modo desarrollo, permitir todos los orígenes
-            if "*" in origins or any("ngrok" in o.lower() for o in origins):
-                return ["*"]
-            return origins
-        # Si es una lista y contiene ngrok o wildcard, permitir todos
-        if isinstance(v, list):
-            for origin in v:
-                if "*" in origin or "ngrok" in origin.lower():
+    @field_validator("BACKEND_CORS_ORIGINS", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v: Any) -> List[str]:
+        """
+        Parsear BACKEND_CORS_ORIGINS desde string separada por comas, JSON, o lista.
+        Maneja todos los casos posibles y siempre retorna una lista válida.
+        """
+        import json
+        
+        default_origins = ["http://localhost:3000", "https://proyecto-p2p.vercel.app"]
+        
+        try:
+            # Si es None o vacío, usar valores por defecto
+            if v is None:
+                return default_origins
+            
+            # Si es una lista, procesarla directamente
+            if isinstance(v, list):
+                if not v:
+                    return default_origins
+                origins = [str(o).strip() for o in v if str(o) and str(o).strip()]
+                if not origins:
+                    return default_origins
+                if any("*" in str(o) or "ngrok" in str(o).lower() for o in origins):
                     return ["*"]
-        return v
+                return origins
+            
+            # Si es una cadena
+            if isinstance(v, str):
+                v = v.strip()
+                if not v:
+                    return default_origins
+                
+                # Intentar parsear como JSON primero
+                try:
+                    parsed = json.loads(v)
+                    if isinstance(parsed, list):
+                        origins = [str(o).strip() for o in parsed if str(o) and str(o).strip()]
+                        if not origins:
+                            return default_origins
+                        if any("*" in str(o) or "ngrok" in str(o).lower() for o in origins):
+                            return ["*"]
+                        return origins
+                except (json.JSONDecodeError, ValueError, TypeError):
+                    # No es JSON válido, continuar con parsing como string separada por comas
+                    pass
+                
+                # Tratar como string separada por comas
+                origins = [i.strip() for i in v.split(",") if i.strip()]
+                if not origins:
+                    return default_origins
+                if "*" in origins or any("ngrok" in o.lower() for o in origins):
+                    return ["*"]
+                return origins
+            
+            # Si es otro tipo no esperado, usar valores por defecto
+            return default_origins
+            
+        except Exception:
+            # En caso de cualquier error inesperado, retornar valores por defecto
+            return default_origins
 
     # Logging
     LOG_LEVEL: str = "INFO"

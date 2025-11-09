@@ -26,7 +26,7 @@
 
 1. Ejecuta el script:
    ```powershell
-   .\obtener_chat_id.ps1
+   .\scripts\obtener_chat_id.ps1
    ```
 2. Sigue las instrucciones en pantalla
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useEffect } from 'react'
+import { useMemo, useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import {
@@ -19,6 +19,10 @@ import api from '@/lib/api'
 import { PriceCard } from '@/components/PriceCard'
 import { StatsBar } from '@/components/StatsBar'
 import { WhatsAppButton } from '@/components/WhatsAppButton'
+import { CurrencyCalculator } from '@/components/CurrencyCalculator'
+import { PriceChart } from '@/components/PriceChart'
+import { TrustSection } from '@/components/TrustSection'
+import { ProcessSteps } from '@/components/ProcessSteps'
 
 type PriceData = {
   asset: string
@@ -140,6 +144,28 @@ export default function LandingPage({
   const safeTrm = trmError ? initialTrm : trmData
   const safeStats = statsError ? initialStats : stats
 
+  // Contador animado de operaciones (simulado)
+  const [liveOperations, setLiveOperations] = useState(0)
+  useEffect(() => {
+    if (safeStats?.completed) {
+      const target = safeStats.completed
+      const duration = 2000
+      const steps = 60
+      const increment = target / steps
+      let current = 0
+      const timer = setInterval(() => {
+        current += increment
+        if (current >= target) {
+          setLiveOperations(target)
+          clearInterval(timer)
+        } else {
+          setLiveOperations(Math.floor(current))
+        }
+      }, duration / steps)
+      return () => clearInterval(timer)
+    }
+  }, [safeStats?.completed])
+
   const highlightedCopPrice = safePrices?.COP?.sell_price ?? null
   const highlightedVesPrice = safePrices?.VES?.sell_price ?? null
 
@@ -227,10 +253,10 @@ export default function LandingPage({
             )}
 
             <button
-              onClick={() => document.getElementById('tasas')?.scrollIntoView({ behavior: 'smooth' })}
+              onClick={() => document.getElementById('calculadora')?.scrollIntoView({ behavior: 'smooth' })}
               className="flex items-center gap-2 px-8 py-4 bg-gray-800 hover:bg-gray-700 border border-primary-500/30 text-white rounded-xl font-semibold text-lg transition-all"
             >
-              Ver Tasas en Vivo
+              Calcular Cambio
               <TrendingUp className="h-5 w-5" />
             </button>
           </div>
@@ -363,7 +389,58 @@ export default function LandingPage({
         </div>
       </section>
 
+      {/* Sección de Calculadora */}
+      <section id="calculadora" className="py-20 px-4 sm:px-6 lg:px-8 bg-gray-900/50">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
+              Calcula tu Cambio al Instante
+            </h2>
+            <p className="text-xl text-gray-400 max-w-2xl mx-auto">
+              Ingresa el monto que deseas cambiar y obtén el resultado exacto en tiempo real
+            </p>
+          </div>
+          <div className="max-w-4xl mx-auto">
+            <CurrencyCalculator
+              copData={safePrices?.COP}
+              vesData={safePrices?.VES}
+              trm={safeTrm?.current}
+              whatsappLink={whatsappLink}
+              whatsappMessage={whatsappMessage}
+            />
+          </div>
+        </div>
+      </section>
+
       <StatsBar initialStats={stats ?? initialStats ?? null} />
+
+      {/* Sección de Gráficos */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gray-900">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
+              Evolución de Precios
+            </h2>
+            <p className="text-xl text-gray-400 max-w-2xl mx-auto">
+              Visualiza el historial de precios y encuentra el mejor momento para cambiar
+            </p>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {safePrices?.COP && (
+              <PriceChart currency="COP" />
+            )}
+            {safePrices?.VES && (
+              <PriceChart currency="VES" />
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Sección de Proceso Paso a Paso */}
+      <ProcessSteps whatsappLink={whatsappLink} />
+
+      {/* Sección de Confianza */}
+      <TrustSection />
 
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gray-900">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">

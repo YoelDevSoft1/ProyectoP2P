@@ -1,5 +1,10 @@
 # Script para obtener el Chat ID usando el token del bot
-# Uso: .\obtener_chat_id.ps1
+# Uso: .\scripts\obtener_chat_id.ps1 (desde la raíz del proyecto)
+
+# Cambiar al directorio raíz del proyecto
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$projectRoot = Split-Path -Parent $scriptDir
+Set-Location $projectRoot
 
 $token = "8519988770:AAHvjXA_goCW-vGz20K4Au_xT3naVF0UCBs"
 

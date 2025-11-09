@@ -9,7 +9,7 @@ import structlog
 
 from app.core.config import settings
 from app.core.database import init_db, close_db_connections
-from app.api.endpoints import health, trades, prices, analytics, spot, advanced_arbitrage
+from app.api.endpoints import health, trades, prices, analytics, spot, advanced_arbitrage, dynamic_pricing, market_making, order_execution
 
 # Configurar logging estructurado
 structlog.configure(
@@ -135,6 +135,24 @@ app.include_router(
     advanced_arbitrage.router,
     prefix=f"{settings.API_V1_STR}/advanced-arbitrage",
     tags=["advanced-arbitrage"]
+)
+
+app.include_router(
+    dynamic_pricing.router,
+    prefix=f"{settings.API_V1_STR}",
+    tags=["dynamic-pricing"]
+)
+
+app.include_router(
+    market_making.router,
+    prefix=f"{settings.API_V1_STR}",
+    tags=["market-making"]
+)
+
+app.include_router(
+    order_execution.router,
+    prefix=f"{settings.API_V1_STR}",
+    tags=["order-execution"]
 )
 
 

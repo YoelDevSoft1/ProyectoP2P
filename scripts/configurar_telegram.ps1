@@ -1,10 +1,15 @@
 # Script para configurar Telegram Bot en el archivo .env
-# Uso: .\configurar_telegram.ps1
+# Uso: .\scripts\configurar_telegram.ps1 (desde la raíz del proyecto)
 
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "Configuración del Bot de Telegram" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
+
+# Cambiar al directorio raíz del proyecto
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$projectRoot = Split-Path -Parent $scriptDir
+Set-Location $projectRoot
 
 # Verificar que el archivo .env existe
 if (-not (Test-Path .env)) {

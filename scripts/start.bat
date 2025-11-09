@@ -4,6 +4,9 @@ echo  Casa de Cambio P2P - Inicio Rapido
 echo ========================================
 echo.
 
+REM Cambiar al directorio raíz del proyecto
+cd /d "%~dp0.."
+
 REM Verificar si existe .env
 if not exist .env (
     echo [!] El archivo .env no existe. Copiando desde .env.example...

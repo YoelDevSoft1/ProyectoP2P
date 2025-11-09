@@ -1,6 +1,7 @@
 'use client'
 
-import { TrendingUp, TrendingDown } from 'lucide-react'
+import { TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { useState, useEffect } from 'react'
 
 interface PriceData {
   asset: string
@@ -36,6 +37,27 @@ const CURRENCY_INFO = {
 
 export function PriceCard({ currency, data, trm }: PriceCardProps) {
   const info = CURRENCY_INFO[currency]
+  const [previousBuyPrice, setPreviousBuyPrice] = useState(data.buy_price)
+  const [previousSellPrice, setPreviousSellPrice] = useState(data.sell_price)
+  const [buyPriceChange, setBuyPriceChange] = useState<'up' | 'down' | null>(null)
+  const [sellPriceChange, setSellPriceChange] = useState<'up' | 'down' | null>(null)
+
+  // Detectar cambios de precio
+  useEffect(() => {
+    if (data.buy_price !== previousBuyPrice) {
+      setBuyPriceChange(data.buy_price > previousBuyPrice ? 'up' : 'down')
+      setPreviousBuyPrice(data.buy_price)
+      setTimeout(() => setBuyPriceChange(null), 2000)
+    }
+  }, [data.buy_price, previousBuyPrice])
+
+  useEffect(() => {
+    if (data.sell_price !== previousSellPrice) {
+      setSellPriceChange(data.sell_price > previousSellPrice ? 'up' : 'down')
+      setPreviousSellPrice(data.sell_price)
+      setTimeout(() => setSellPriceChange(null), 2000)
+    }
+  }, [data.sell_price, previousSellPrice])
 
   const formatCurrency = (value: number) => {
     if (currency === 'VES') {
@@ -63,12 +85,23 @@ export function PriceCard({ currency, data, trm }: PriceCardProps) {
 
       {/* Prices */}
       <div className="grid grid-cols-2 gap-4 mb-6">
-        <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
+        <div 
+          className={`bg-green-900/20 border border-green-700 rounded-lg p-4 transition-all duration-300 ${
+            buyPriceChange === 'up' ? 'ring-2 ring-green-400 scale-105' : 
+            buyPriceChange === 'down' ? 'ring-2 ring-green-600 scale-105' : ''
+          }`}
+        >
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-gray-400">Nosotros compramos</span>
-            <TrendingDown className="h-4 w-4 text-green-500" />
+            <div className="flex items-center gap-1">
+              {buyPriceChange === 'up' && <ArrowUpRight className="h-4 w-4 text-green-400 animate-pulse" />}
+              {buyPriceChange === 'down' && <ArrowDownRight className="h-4 w-4 text-green-600 animate-pulse" />}
+              {!buyPriceChange && <TrendingDown className="h-4 w-4 text-green-500" />}
+            </div>
           </div>
-          <p className="text-2xl font-bold text-green-500">
+          <p className={`text-2xl font-bold text-green-500 transition-all ${
+            buyPriceChange ? 'scale-110' : ''
+          }`}>
             {info.symbol}{formatCurrency(data.buy_price)}
           </p>
           <p className="text-xs text-gray-500 mt-1">
@@ -76,12 +109,23 @@ export function PriceCard({ currency, data, trm }: PriceCardProps) {
           </p>
         </div>
 
-        <div className="bg-red-900/20 border border-red-700 rounded-lg p-4">
+        <div 
+          className={`bg-red-900/20 border border-red-700 rounded-lg p-4 transition-all duration-300 ${
+            sellPriceChange === 'up' ? 'ring-2 ring-red-400 scale-105' : 
+            sellPriceChange === 'down' ? 'ring-2 ring-red-600 scale-105' : ''
+          }`}
+        >
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-gray-400">Nosotros vendemos</span>
-            <TrendingUp className="h-4 w-4 text-red-500" />
+            <div className="flex items-center gap-1">
+              {sellPriceChange === 'up' && <ArrowUpRight className="h-4 w-4 text-red-400 animate-pulse" />}
+              {sellPriceChange === 'down' && <ArrowDownRight className="h-4 w-4 text-red-600 animate-pulse" />}
+              {!sellPriceChange && <TrendingUp className="h-4 w-4 text-red-500" />}
+            </div>
           </div>
-          <p className="text-2xl font-bold text-red-500">
+          <p className={`text-2xl font-bold text-red-500 transition-all ${
+            sellPriceChange ? 'scale-110' : ''
+          }`}>
             {info.symbol}{formatCurrency(data.sell_price)}
           </p>
           <p className="text-xs text-gray-500 mt-1">

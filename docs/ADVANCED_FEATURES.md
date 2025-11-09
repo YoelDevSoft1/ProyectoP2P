@@ -484,9 +484,9 @@ frontend/src/app/dashboard/
 
 ## 📚 Documentación Adicional
 
-- **SPOT_Y_ARBITRAJE.md**: Guía de Spot API y Arbitraje
-- **CONSIDERACIONES_IMPORTANTES.md**: Warnings legales y técnicos
-- **QUICKSTART.md**: Setup inicial
+- **[SPOT_Y_ARBITRAJE.md](SPOT_Y_ARBITRAJE.md)**: Guía de Spot API y Arbitraje
+- **[CONSIDERACIONES_IMPORTANTES.md](CONSIDERACIONES_IMPORTANTES.md)**: Warnings legales y técnicos
+- **[QUICKSTART.md](QUICKSTART.md)**: Setup inicial
 
 ---
 

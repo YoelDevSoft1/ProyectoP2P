@@ -85,7 +85,7 @@ Luego accede a:
 - **Dashboard**: http://localhost:3000/dashboard
 - **API Docs**: http://localhost:8000/api/v1/docs
 
-📖 **[Ver Guía Completa de Inicio](QUICKSTART.md)**
+📖 **[Ver Guía Completa de Inicio](docs/QUICKSTART.md)**
 
 ## Configuración
 
