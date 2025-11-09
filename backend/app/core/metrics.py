@@ -243,17 +243,25 @@ class MetricsMiddleware:
     """Middleware para capturar métricas automáticamente"""
     
     @staticmethod
-    async def track_request(method: str, endpoint: str, status_code: int, duration: float):
+    def track_request(method: str, endpoint: str, status_code: int, duration: float):
         """Registrar métricas de request HTTP"""
+        # Normalizar endpoint para evitar demasiadas métricas únicas
+        # Ej: /api/v1/prices/USDT/COP -> /api/v1/prices/{asset}/{fiat}
+        normalized_endpoint = endpoint
+        if "/prices/" in endpoint and endpoint.count("/") >= 4:
+            parts = endpoint.split("/")
+            if len(parts) >= 5:
+                normalized_endpoint = f"{parts[0]}/{parts[1]}/{parts[2]}/{parts[3]}/{{asset}}/{{fiat}}"
+        
         http_requests_total.labels(
             method=method,
-            endpoint=endpoint,
+            endpoint=normalized_endpoint,
             status_code=status_code
         ).inc()
         
         http_request_duration_seconds.labels(
             method=method,
-            endpoint=endpoint,
+            endpoint=normalized_endpoint,
             status_code=status_code
         ).observe(duration)
     

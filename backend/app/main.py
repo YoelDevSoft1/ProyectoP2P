@@ -6,9 +6,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from contextlib import asynccontextmanager
 import structlog
+import time
 
 from app.core.config import settings
 from app.core.database import init_db, close_db_connections
+from app.core.database_async import init_async_db, close_async_db_connections
+from app.core.redis_pool import redis_pool
+from app.core.metrics import metrics
 from app.api.endpoints import health, trades, prices, analytics, spot, advanced_arbitrage, dynamic_pricing, market_making, order_execution
 
 # Configurar logging estructurado
@@ -30,15 +34,32 @@ async def lifespan(app: FastAPI):
     """
     # Startup
     logger.info("Starting application", environment=settings.ENVIRONMENT)
+    
+    # Inicializar base de datos síncrona
     init_db()
-    logger.info("Database initialized")
-
+    logger.info("Synchronous database initialized")
+    
+    # Inicializar base de datos asíncrona
+    await init_async_db()
+    logger.info("Asynchronous database initialized")
+    
+    # Inicializar Redis pool
+    await redis_pool.initialize()
+    logger.info("Redis pool initialized")
+    
     yield
 
     # Shutdown
     logger.info("Shutting down application")
+    
+    # Cerrar conexiones de base de datos
     await close_db_connections()
+    await close_async_db_connections()
     logger.info("Database connections closed")
+    
+    # Cerrar Redis pool
+    await redis_pool.close()
+    logger.info("Redis pool closed")
 
 
 # Crear aplicación FastAPI
@@ -75,13 +96,15 @@ app.add_middleware(
 # Middleware de compresión
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-# Middleware para manejar ngrok interceptor page y OPTIONS requests
+# Middleware para métricas Prometheus
 @app.middleware("http")
-async def ngrok_cors_middleware(request: Request, call_next):
+async def metrics_middleware(request: Request, call_next):
     """
-    Middleware para manejar requests de ngrok y CORS preflight.
+    Middleware para capturar métricas de requests HTTP.
     """
-    # Manejar OPTIONS (preflight requests)
+    start_time = time.time()
+    
+    # Manejar OPTIONS (preflight requests) - no registrar métricas
     if request.method == "OPTIONS":
         response = Response()
         response.headers["Access-Control-Allow-Origin"] = "*"
@@ -90,7 +113,25 @@ async def ngrok_cors_middleware(request: Request, call_next):
         response.headers["Access-Control-Allow-Credentials"] = "true"
         return response
     
-    response = await call_next(request)
+    # Procesar request
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+    except Exception as e:
+        status_code = 500
+        raise
+    finally:
+        # Calcular duración
+        duration = time.time() - start_time
+        
+        # Registrar métricas (solo si no es el endpoint de métricas para evitar loops)
+        if request.url.path != "/api/v1/metrics" and not request.url.path.startswith("/api/v1/metrics"):
+            metrics.track_request(
+                method=request.method,
+                endpoint=request.url.path,
+                status_code=status_code,
+                duration=duration
+            )
     
     # Agregar headers CORS a todas las respuestas si estamos en desarrollo
     if settings.ENVIRONMENT == "development":
@@ -99,12 +140,22 @@ async def ngrok_cors_middleware(request: Request, call_next):
     
     return response
 
+# Middleware para manejar ngrok interceptor page
+@app.middleware("http")
+async def ngrok_cors_middleware(request: Request, call_next):
+    """
+    Middleware para manejar requests de ngrok y CORS preflight.
+    """
+    response = await call_next(request)
+    return response
+
 
 # Incluir routers
+# Incluir router de health (que incluye métricas)
 app.include_router(
     health.router,
     prefix=settings.API_V1_STR,
-    tags=["health"]
+    tags=["health", "metrics"]
 )
 
 app.include_router(

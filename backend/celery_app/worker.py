@@ -118,5 +118,70 @@ def debug_task(self):
     return {"status": "ok"}
 
 
+# Signal handlers para métricas
+from celery.signals import task_prerun, task_postrun, task_failure, task_retry
+import time
+
+_task_start_times = {}
+
+
+@task_prerun.connect
+def task_prerun_handler(sender=None, task_id=None, task=None, args=None, kwargs=None, **kwds):
+    """Handler ejecutado antes de una tarea"""
+    _task_start_times[task_id] = time.time()
+    
+    # Registrar métrica de tarea iniciada
+    try:
+        from app.core.metrics import metrics
+        metrics.track_celery_task(task.name, status="started")
+        metrics.celery_tasks_active.labels(task_name=task.name).inc()
+    except Exception as e:
+        logger.warning("Failed to track Celery task start", error=str(e))
+
+
+@task_postrun.connect
+def task_postrun_handler(sender=None, task_id=None, task=None, args=None, kwargs=None, retval=None, state=None, **kwds):
+    """Handler ejecutado después de una tarea"""
+    start_time = _task_start_times.pop(task_id, None)
+    duration = time.time() - start_time if start_time else None
+    
+    # Registrar métrica de tarea completada
+    try:
+        from app.core.metrics import metrics
+        metrics.track_celery_task(task.name, duration=duration, status="succeeded")
+        metrics.celery_tasks_active.labels(task_name=task.name).dec()
+    except Exception as e:
+        logger.warning("Failed to track Celery task completion", error=str(e))
+
+
+@task_failure.connect
+def task_failure_handler(sender=None, task_id=None, exception=None, traceback=None, einfo=None, **kwds):
+    """Handler ejecutado cuando una tarea falla"""
+    start_time = _task_start_times.pop(task_id, None)
+    duration = time.time() - start_time if start_time else None
+    
+    # Obtener nombre de la tarea
+    task_name = sender.name if sender else "unknown"
+    
+    # Registrar métrica de tarea fallida
+    try:
+        from app.core.metrics import metrics
+        metrics.track_celery_task(task_name, duration=duration, status="failed")
+        metrics.celery_tasks_active.labels(task_name=task_name).dec()
+    except Exception as e:
+        logger.warning("Failed to track Celery task failure", error=str(e))
+
+
+@task_retry.connect
+def task_retry_handler(sender=None, task_id=None, reason=None, einfo=None, **kwds):
+    """Handler ejecutado cuando una tarea se reintenta"""
+    # Registrar métrica de reintento
+    try:
+        from app.core.metrics import metrics
+        metrics.celery_task_retries_total.labels(task_name=sender.name).inc()
+    except Exception as e:
+        logger.warning("Failed to track Celery task retry", error=str(e))
+
+
 if __name__ == "__main__":
     celery_app.start()

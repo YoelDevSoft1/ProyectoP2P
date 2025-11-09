@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { Calculator, ArrowRightLeft, TrendingUp, TrendingDown, Send, Copy, Check } from 'lucide-react'
-import { PriceData } from './PriceCard'
+import { PriceData, Currency, TradeDirection } from '@/types/prices'
 
 interface CurrencyCalculatorProps {
   copData?: PriceData
@@ -12,8 +12,7 @@ interface CurrencyCalculatorProps {
   whatsappMessage?: string
 }
 
-type Currency = 'COP' | 'VES' | 'USDT'
-type Direction = 'buy' | 'sell'
+type Direction = TradeDirection
 
 export function CurrencyCalculator({
   copData,

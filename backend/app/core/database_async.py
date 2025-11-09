@@ -4,7 +4,7 @@ Mejora el rendimiento con conexiones asíncronas y mejor pooling.
 """
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
-from sqlalchemy.pool import NullPool, QueuePool
+from sqlalchemy.pool import QueuePool
 from typing import AsyncGenerator
 import structlog
 

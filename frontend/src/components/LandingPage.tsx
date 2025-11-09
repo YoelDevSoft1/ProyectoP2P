@@ -23,44 +23,7 @@ import { CurrencyCalculator } from '@/components/CurrencyCalculator'
 import { PriceChart } from '@/components/PriceChart'
 import { TrustSection } from '@/components/TrustSection'
 import { ProcessSteps } from '@/components/ProcessSteps'
-
-type PriceData = {
-  asset: string
-  fiat: string
-  buy_price: number
-  sell_price: number
-  market_buy: number
-  market_sell: number
-  spread: number
-  margin: number
-  timestamp: string
-  trm?: number
-}
-
-type PriceResponse = Record<string, PriceData>
-
-type TradeStats = {
-  period_days: number
-  total_trades: number
-  completed: number
-  pending: number
-  failed: number
-  automated_trades: number
-  manual_trades: number
-  total_profit: number
-  total_volume_usd: number
-  average_profit_per_trade: number
-  success_rate: number
-  by_currency?: Record<string, { count: number; volume: number; profit: number }>
-}
-
-type TrmResponse = {
-  current: number
-  currency: string
-  last_updated: string
-  change_percentage: number
-  history: Array<{ date: string; value: number }>
-}
+import { PriceResponse, TradeStats, TrmResponse } from '@/types/prices'
 
 interface LandingPageProps {
   initialPrices: PriceResponse | null

@@ -7,6 +7,7 @@ from redis.asyncio.connection import ConnectionPool
 from redis.exceptions import RedisError, ConnectionError as RedisConnectionError
 from typing import Optional
 import structlog
+import asyncio
 from datetime import datetime, timedelta
 
 from app.core.config import settings
@@ -180,8 +181,4 @@ async def get_redis_pool() -> aioredis.Redis:
     Dependency que proporciona cliente Redis del pool.
     """
     return await redis_pool.get_client()
-
-
-# Importar asyncio para sleep
-import asyncio
 

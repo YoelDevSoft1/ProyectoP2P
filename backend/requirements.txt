@@ -13,6 +13,10 @@ alembic==1.13.1
 redis==5.0.1
 hiredis==2.3.2
 
+# RabbitMQ
+aio-pika==9.3.0
+pika==1.3.2
+
 # Celery para tareas asíncronas
 celery==5.3.6
 kombu==5.3.5

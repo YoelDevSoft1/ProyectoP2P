@@ -3,30 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { DollarSign, TrendingUp, Activity, CheckCircle } from 'lucide-react'
 import api from '@/lib/api'
-
-type CurrencyBreakdown = {
-  count: number
-  volume: number
-  profit: number
-}
-
-type TradeStats = {
-  period_days: number
-  total_trades: number
-  completed: number
-  pending: number
-  failed: number
-  automated_trades: number
-  manual_trades: number
-  total_profit: number
-  total_volume_usd: number
-  average_profit_per_trade: number
-  success_rate: number
-  by_currency?: {
-    COP: CurrencyBreakdown
-    VES: CurrencyBreakdown
-  }
-}
+import { TradeStats } from '@/types/prices'
 
 interface StatsBarProps {
   initialStats?: TradeStats | null
@@ -109,7 +86,7 @@ export function StatsBar({ initialStats }: StatsBarProps) {
         </div>
 
         {/* Breakdown by Currency */}
-        {stats.by_currency && (
+        {stats.by_currency && stats.by_currency.COP && stats.by_currency.VES && (
           <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-700 rounded-lg p-6">
               <h4 className="text-lg font-semibold text-white mb-4">🇨🇴 Colombia (COP)</h4>

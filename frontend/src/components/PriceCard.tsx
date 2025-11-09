@@ -2,19 +2,7 @@
 
 import { TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import { useState, useEffect } from 'react'
-
-interface PriceData {
-  asset: string
-  fiat: string
-  buy_price: number
-  sell_price: number
-  market_buy: number
-  market_sell: number
-  spread: number
-  margin: number
-  timestamp: string
-  trm?: number
-}
+import { PriceData } from '@/types/prices'
 
 interface PriceCardProps {
   currency: 'COP' | 'VES'
