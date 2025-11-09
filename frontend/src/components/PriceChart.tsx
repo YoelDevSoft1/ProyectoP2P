@@ -13,6 +13,15 @@ interface PriceChartProps {
 
 type Timeframe = '24h' | '7d' | '30d'
 
+interface ChartDataPoint {
+  date: string
+  timestamp: number
+  value: number
+  buy_price: number
+  sell_price: number
+  spread?: number
+}
+
 export function PriceChart({ currency, initialData }: PriceChartProps) {
   const [timeframe, setTimeframe] = useState<Timeframe>('24h')
   const [priceType, setPriceType] = useState<'buy' | 'sell'>('sell')
@@ -34,23 +43,27 @@ export function PriceChart({ currency, initialData }: PriceChartProps) {
   const rawData = historyData?.history || initialData || []
   const shouldShowTime = rawData.length < 50
   
-  const chartData = rawData.map((item: any) => {
+  const chartData: ChartDataPoint[] = rawData.map((item: any): ChartDataPoint | null => {
     const date = new Date(item.timestamp || item.date)
     // El backend devuelve bid (compra) y ask (venta)
     // bid = precio al que compramos (buy), ask = precio al que vendemos (sell)
     const buyPrice = item.bid || item.buy_price || item.avg || item.value || 0
     const sellPrice = item.ask || item.sell_price || item.avg || item.value || 0
+    const value = priceType === 'buy' ? buyPrice : sellPrice
+    
+    if (value <= 0) return null
+    
     return {
       date: shouldShowTime
         ? date.toLocaleDateString('es', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
         : date.toLocaleDateString('es', { month: 'short', day: 'numeric' }),
       timestamp: date.getTime(),
-      value: priceType === 'buy' ? buyPrice : sellPrice,
+      value,
       buy_price: buyPrice,
       sell_price: sellPrice,
       spread: item.spread,
     }
-  }).filter((item: any) => item.value > 0)
+  }).filter((item): item is ChartDataPoint => item !== null)
 
   // Calcular tendencia
   const trend = chartData.length >= 2
@@ -224,14 +237,14 @@ export function PriceChart({ currency, initialData }: PriceChartProps) {
             <p className="text-xs text-gray-400 mb-1">Mínimo</p>
             <p className="text-sm font-semibold text-white">
               {currencySymbol}
-              {formatValue(Math.min(...chartData.map((d) => d.value)))}
+              {formatValue(Math.min(...chartData.map((d: ChartDataPoint) => d.value)))}
             </p>
           </div>
           <div>
             <p className="text-xs text-gray-400 mb-1">Máximo</p>
             <p className="text-sm font-semibold text-white">
               {currencySymbol}
-              {formatValue(Math.max(...chartData.map((d) => d.value)))}
+              {formatValue(Math.max(...chartData.map((d: ChartDataPoint) => d.value)))}
             </p>
           </div>
           <div>
@@ -239,7 +252,7 @@ export function PriceChart({ currency, initialData }: PriceChartProps) {
             <p className="text-sm font-semibold text-white">
               {currencySymbol}
               {formatValue(
-                chartData.reduce((acc, d) => acc + d.value, 0) / chartData.length
+                chartData.reduce((acc: number, d: ChartDataPoint) => acc + d.value, 0) / chartData.length
               )}
             </p>
           </div>
