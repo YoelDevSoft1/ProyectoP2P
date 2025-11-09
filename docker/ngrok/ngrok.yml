@@ -1,14 +1,11 @@
 version: "2"
-authtoken: ${NGROK_AUTHTOKEN}
+authtoken: 354MCxudKoGRubEaNVQawAuXwuP_4C8xDneqi8M6YaG8xJcsg
 
 tunnels:
   backend:
     addr: backend:8000
     proto: http
     inspect: true
-    # Usar el dominio reservado si está disponible
-    # Si no, ngrok generará un dominio aleatorio
-    # domain: "denver-unbrooded-miley.ngrok-free.dev"
 
 web_addr: 0.0.0.0:4040
 

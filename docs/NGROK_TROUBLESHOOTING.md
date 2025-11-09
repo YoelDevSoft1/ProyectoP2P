@@ -4,24 +4,38 @@
 
 ### Problema
 ```
-ERROR: failed to start tunnel: The endpoint 'https://xxxx.ngrok-free.dev' is already online.
+ERROR: failed to start tunnel: The endpoint 'https://denver-unbrooded-miley.ngrok-free.dev' is already online.
 ERR_NGROK_334
 ```
 
 ### Causa
-Hay otra instancia de ngrok corriendo (desde terminal local, otro contenedor, o sesión previa) que está usando el mismo dominio.
+Hay otra instancia de ngrok corriendo (desde terminal local, otro contenedor, sesión previa, o el dominio está reservado y en uso) que está usando el mismo dominio.
+
+**Nota**: Si tienes un dominio reservado en ngrok (como `denver-unbrooded-miley.ngrok-free.dev`), solo puede estar activo en una instancia a la vez.
 
 ### Soluciones
 
-#### Solución 1: Detener la otra instancia de ngrok (Recomendado)
+#### Solución 1: Detener todas las instancias de ngrok (Recomendado)
 
-**Windows:**
+**Usando el script proporcionado:**
+```powershell
+# Detener todas las instancias de ngrok
+.\scripts\stop-all-ngrok.ps1
+
+# Limpiar y reiniciar ngrok
+.\scripts\ngrok-clean-restart.ps1
+```
+
+**Manual - Windows:**
 ```powershell
 # Ver procesos de ngrok
 Get-Process | Where-Object {$_.ProcessName -like "*ngrok*"}
 
 # Detener todos los procesos de ngrok
 Get-Process | Where-Object {$_.ProcessName -like "*ngrok*"} | Stop-Process -Force
+
+# Detener contenedor Docker
+docker-compose stop ngrok
 ```
 
 **Linux/Mac:**
@@ -76,6 +90,19 @@ Para desarrollo, ngrok free tier genera un dominio único cada vez que inicias u
 1. Ve a https://dashboard.ngrok.com/cloud-edge/tunnels
 2. Verifica si hay túneles activos
 3. Detén los túneles que no necesites
+4. Si tienes un dominio reservado, verifica que no esté en uso en otra sesión
+
+**Verificar desde la línea de comandos:**
+```powershell
+# Ver contenedores de ngrok
+docker ps | grep ngrok
+
+# Ver procesos de ngrok
+Get-Process | Where-Object {$_.ProcessName -like "*ngrok*"}
+
+# Ver túneles activos (si ngrok está corriendo)
+curl http://localhost:4040/api/tunnels
+```
 
 **Verificar desde la API local:**
 ```bash
