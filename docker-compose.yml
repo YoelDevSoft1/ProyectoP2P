@@ -350,18 +350,28 @@ services:
           echo "Puedes obtener tu authtoken desde: https://dashboard.ngrok.com/get-started/your-authtoken"
           exit 1
         fi
-        # Reemplazar el placeholder en el archivo de configuración
+        # Reemplazar el placeholder en el archivo de configuración si existe
         echo "Configurando authtoken de ngrok..."
-        sed -i "s|authtoken: \$${NGROK_AUTHTOKEN}|authtoken: $$NGROK_AUTHTOKEN|g" /etc/ngrok/ngrok.yml
-        # Verificar que el archivo de configuración sea válido
-        if ! grep -q "authtoken:" /etc/ngrok/ngrok.yml; then
+        if grep -q "\$${NGROK_AUTHTOKEN}" /etc/ngrok/ngrok.yml 2>/dev/null; then
+          sed -i "s|authtoken: \$${NGROK_AUTHTOKEN}|authtoken: $$NGROK_AUTHTOKEN|g" /etc/ngrok/ngrok.yml
+          echo "Authtoken reemplazado en el archivo de configuración"
+        elif ! grep -q "^authtoken:" /etc/ngrok/ngrok.yml 2>/dev/null; then
+          # Si no hay authtoken, agregarlo al principio del archivo
+          sed -i "1i authtoken: $$NGROK_AUTHTOKEN" /etc/ngrok/ngrok.yml
+          echo "Authtoken agregado al archivo de configuración"
+        else
+          echo "Authtoken ya está configurado en el archivo"
+        fi
+        # Verificar que el archivo de configuración tenga authtoken
+        if ! grep -q "^authtoken:" /etc/ngrok/ngrok.yml; then
           echo "ERROR: No se pudo configurar el authtoken en el archivo de configuración"
           exit 1
         fi
         echo "Authtoken configurado correctamente"
         echo "Iniciando ngrok..."
-        # Iniciar ngrok (el depends_on se encarga de esperar que el backend esté listo)
-        exec ngrok start --all --config /etc/ngrok/ngrok.yml
+        # Iniciar ngrok con pooling habilitado para permitir múltiples instancias
+        # o usar un dominio único si hay conflicto
+        exec ngrok start --all --config /etc/ngrok/ngrok.yml --log=stdout
     volumes:
       - ./docker/ngrok:/etc/ngrok
     ports:
