@@ -7,6 +7,25 @@ RUN apt-get update && apt-get install -y \
     make \
     libpq-dev \
     curl \
+    # Dependencias comunes que Playwright requiere en contenedores Debian/Ubuntu
+    libnss3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libdrm2 \
+    libasound2 \
+    libpangocairo-1.0-0 \
+    libpango-1.0-0 \
+    libxcursor1 \
+    libxi6 \
+    libxss1 \
+    fonts-liberation \
+    fonts-unifont \
     && rm -rf /var/lib/apt/lists/*
 
 # Nota: TA-Lib C library comentada para instalación más rápida
@@ -23,9 +42,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Instalar navegadores y dependencias de Playwright
-RUN playwright install chromium && \
-    playwright install-deps chromium
+# Instalar navegadores de Playwright (las dependencias del sistema se instalaron arriba)
+RUN playwright install chromium
 
 # Copiar código de la aplicación
 COPY . .

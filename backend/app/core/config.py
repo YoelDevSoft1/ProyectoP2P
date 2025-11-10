@@ -2,7 +2,7 @@
 Configuración central de la aplicación.
 Lee variables de entorno y proporciona configuración tipada.
 """
-from typing import Any, Dict, List, Literal, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import field_validator, Field
 
@@ -73,6 +73,11 @@ class Settings(BaseSettings):
         "PEN": 3.8,
         "MXN": 17.0,
     })
+    
+    # Alpha Vantage API (opcional)
+    ALPHA_VANTAGE_API_KEY: Optional[str] = Field(default=None, env="ALPHA_VANTAGE_API_KEY")
+    ALPHA_VANTAGE_ENABLED: bool = Field(default=True, env="ALPHA_VANTAGE_ENABLED")
+    ALPHA_VANTAGE_CACHE_TTL: int = Field(default=900, env="ALPHA_VANTAGE_CACHE_TTL")  # 15 minutos
 
     # Tasa Venezuela
     VES_RATE_SOURCE: str = "bcv"

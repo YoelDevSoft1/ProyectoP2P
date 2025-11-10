@@ -32,7 +32,6 @@ selenium==4.15.2
 webdriver-manager==4.0.1
 browser-cookie3==0.19.1
 undetected-chromedriver==3.5.4
-selenium-wait==1.0.0
 
 # HTTP y WebSockets
 httpx==0.26.0

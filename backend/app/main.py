@@ -24,6 +24,7 @@ from app.api.endpoints import (
     spot,
     trades,
     dynamic_pricing,
+    forex,
 )
 
 # Configurar logging estructurado
@@ -221,6 +222,12 @@ app.include_router(
     p2p_trading.router,
     prefix=f"{settings.API_V1_STR}",
     tags=["p2p-trading"]
+)
+
+app.include_router(
+    forex.router,
+    prefix=f"{settings.API_V1_STR}",
+    tags=["forex"]
 )
 
 

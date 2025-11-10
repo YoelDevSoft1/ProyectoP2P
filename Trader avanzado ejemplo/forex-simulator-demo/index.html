@@ -1,0 +1,1642 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forex Trading Simulator - Sistema de Trading Virtual</title>
+    <style>
+        :root {
+  /* Primitive Color Tokens */
+  --color-white: rgba(255, 255, 255, 1);
+  --color-black: rgba(0, 0, 0, 1);
+  --color-cream-50: rgba(252, 252, 249, 1);
+  --color-cream-100: rgba(255, 255, 253, 1);
+  --color-gray-200: rgba(245, 245, 245, 1);
+  --color-gray-300: rgba(167, 169, 169, 1);
+  --color-gray-400: rgba(119, 124, 124, 1);
+  --color-slate-500: rgba(98, 108, 113, 1);
+  --color-brown-600: rgba(94, 82, 64, 1);
+  --color-charcoal-700: rgba(31, 33, 33, 1);
+  --color-charcoal-800: rgba(38, 40, 40, 1);
+  --color-slate-900: rgba(19, 52, 59, 1);
+  --color-teal-300: rgba(50, 184, 198, 1);
+  --color-teal-400: rgba(45, 166, 178, 1);
+  --color-teal-500: rgba(33, 128, 141, 1);
+  --color-teal-600: rgba(29, 116, 128, 1);
+  --color-teal-700: rgba(26, 104, 115, 1);
+  --color-teal-800: rgba(41, 150, 161, 1);
+  --color-red-400: rgba(255, 84, 89, 1);
+  --color-red-500: rgba(192, 21, 47, 1);
+  --color-orange-400: rgba(230, 129, 97, 1);
+  --color-orange-500: rgba(168, 75, 47, 1);
+
+  --color-brown-600-rgb: 94, 82, 64;
+  --color-teal-500-rgb: 33, 128, 141;
+  --color-slate-900-rgb: 19, 52, 59;
+  --color-slate-500-rgb: 98, 108, 113;
+  --color-red-500-rgb: 192, 21, 47;
+  --color-red-400-rgb: 255, 84, 89;
+  --color-orange-500-rgb: 168, 75, 47;
+  --color-orange-400-rgb: 230, 129, 97;
+
+  --color-bg-1: rgba(59, 130, 246, 0.08);
+  --color-bg-2: rgba(245, 158, 11, 0.08);
+  --color-bg-3: rgba(34, 197, 94, 0.08);
+  --color-bg-4: rgba(239, 68, 68, 0.08);
+  --color-bg-5: rgba(147, 51, 234, 0.08);
+  --color-bg-6: rgba(249, 115, 22, 0.08);
+  --color-bg-7: rgba(236, 72, 153, 0.08);
+  --color-bg-8: rgba(6, 182, 212, 0.08);
+
+  --color-background: var(--color-cream-50);
+  --color-surface: var(--color-cream-100);
+  --color-text: var(--color-slate-900);
+  --color-text-secondary: var(--color-slate-500);
+  --color-primary: var(--color-teal-500);
+  --color-primary-hover: var(--color-teal-600);
+  --color-primary-active: var(--color-teal-700);
+  --color-secondary: rgba(var(--color-brown-600-rgb), 0.12);
+  --color-secondary-hover: rgba(var(--color-brown-600-rgb), 0.2);
+  --color-secondary-active: rgba(var(--color-brown-600-rgb), 0.25);
+  --color-border: rgba(var(--color-brown-600-rgb), 0.2);
+  --color-btn-primary-text: var(--color-cream-50);
+  --color-card-border: rgba(var(--color-brown-600-rgb), 0.12);
+  --color-card-border-inner: rgba(var(--color-brown-600-rgb), 0.12);
+  --color-error: var(--color-red-500);
+  --color-success: var(--color-teal-500);
+  --color-warning: var(--color-orange-500);
+  --color-info: var(--color-slate-500);
+  --color-focus-ring: rgba(var(--color-teal-500-rgb), 0.4);
+  --color-select-caret: rgba(var(--color-slate-900-rgb), 0.8);
+
+  --focus-ring: 0 0 0 3px var(--color-focus-ring);
+  --focus-outline: 2px solid var(--color-primary);
+
+  --color-success-rgb: 33, 128, 141;
+  --color-error-rgb: 192, 21, 47;
+  --color-warning-rgb: 168, 75, 47;
+  --color-info-rgb: 98, 108, 113;
+
+  --font-family-base: "FKGroteskNeue", "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-family-mono: "Berkeley Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-base: 14px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 18px;
+  --font-size-2xl: 20px;
+  --font-size-3xl: 24px;
+  --font-size-4xl: 30px;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 550;
+  --font-weight-bold: 600;
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --letter-spacing-tight: -0.01em;
+
+  --space-0: 0;
+  --space-1: 1px;
+  --space-2: 2px;
+  --space-4: 4px;
+  --space-6: 6px;
+  --space-8: 8px;
+  --space-10: 10px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-32: 32px;
+
+  --radius-sm: 6px;
+  --radius-base: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --ease-standard: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-gray-400-rgb: 119, 124, 124;
+    --color-teal-300-rgb: 50, 184, 198;
+    --color-gray-300-rgb: 167, 169, 169;
+    --color-gray-200-rgb: 245, 245, 245;
+
+    --color-bg-1: rgba(29, 78, 216, 0.15);
+    --color-bg-2: rgba(180, 83, 9, 0.15);
+    --color-bg-3: rgba(21, 128, 61, 0.15);
+    --color-bg-4: rgba(185, 28, 28, 0.15);
+    --color-bg-5: rgba(107, 33, 168, 0.15);
+    --color-bg-6: rgba(194, 65, 12, 0.15);
+    --color-bg-7: rgba(190, 24, 93, 0.15);
+    --color-bg-8: rgba(8, 145, 178, 0.15);
+
+    --color-background: var(--color-charcoal-700);
+    --color-surface: var(--color-charcoal-800);
+    --color-text: var(--color-gray-200);
+    --color-text-secondary: rgba(var(--color-gray-300-rgb), 0.7);
+    --color-primary: var(--color-teal-300);
+    --color-primary-hover: var(--color-teal-400);
+    --color-primary-active: var(--color-teal-800);
+    --color-secondary: rgba(var(--color-gray-400-rgb), 0.15);
+    --color-secondary-hover: rgba(var(--color-gray-400-rgb), 0.25);
+    --color-secondary-active: rgba(var(--color-gray-400-rgb), 0.3);
+    --color-border: rgba(var(--color-gray-400-rgb), 0.3);
+    --color-error: var(--color-red-400);
+    --color-success: var(--color-teal-300);
+    --color-warning: var(--color-orange-400);
+    --color-info: var(--color-gray-300);
+    --color-focus-ring: rgba(var(--color-teal-300-rgb), 0.4);
+    --color-btn-primary-text: var(--color-slate-900);
+    --color-card-border: rgba(var(--color-gray-400-rgb), 0.2);
+    --color-card-border-inner: rgba(var(--color-gray-400-rgb), 0.15);
+
+    --color-success-rgb: var(--color-teal-300-rgb);
+    --color-error-rgb: var(--color-red-400-rgb);
+    --color-warning-rgb: var(--color-orange-400-rgb);
+    --color-info-rgb: var(--color-gray-300-rgb);
+  }
+}
+
+@font-face {
+  font-family: 'FKGroteskNeue';
+  src: url('https://r2cdn.perplexity.ai/fonts/FKGroteskNeue.woff2') format('woff2');
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-family-base);
+    background: var(--color-background);
+    color: var(--color-text);
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-normal);
+}
+
+.app-container {
+    min-height: 100vh;
+    padding: var(--space-16);
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-24);
+    gap: var(--space-16);
+    flex-wrap: wrap;
+}
+
+.header-title {
+    font-size: var(--font-size-3xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text);
+}
+
+.header-controls {
+    display: flex;
+    gap: var(--space-8);
+    flex-wrap: wrap;
+}
+
+.btn {
+    padding: var(--space-8) var(--space-16);
+    border-radius: var(--radius-base);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    border: none;
+    transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.btn-primary {
+    background: var(--color-primary);
+    color: var(--color-btn-primary-text);
+}
+
+.btn-primary:hover {
+    background: var(--color-primary-hover);
+}
+
+.btn-secondary {
+    background: var(--color-secondary);
+    color: var(--color-text);
+}
+
+.btn-secondary:hover {
+    background: var(--color-secondary-hover);
+}
+
+.btn-danger {
+    background: var(--color-error);
+    color: white;
+}
+
+.btn-danger:hover {
+    opacity: 0.9;
+}
+
+.stats-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--space-12);
+    margin-bottom: var(--space-24);
+}
+
+.stat-card {
+    background: var(--color-surface);
+    padding: var(--space-16);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-card-border);
+    box-shadow: var(--shadow-sm);
+}
+
+.stat-label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    font-weight: var(--font-weight-medium);
+    margin-bottom: var(--space-4);
+}
+
+.stat-value {
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text);
+}
+
+.stat-value.positive {
+    color: var(--color-success);
+}
+
+.stat-value.negative {
+    color: var(--color-error);
+}
+
+.main-grid {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    gap: var(--space-16);
+    margin-bottom: var(--space-24);
+}
+
+@media (max-width: 1200px) {
+    .main-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.card {
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-card-border);
+    box-shadow: var(--shadow-sm);
+    padding: var(--space-16);
+}
+
+.card-title {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    margin-bottom: var(--space-16);
+    color: var(--color-text);
+}
+
+.pair-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+}
+
+.pair-item {
+    padding: var(--space-12);
+    border-radius: var(--radius-base);
+    border: 1px solid var(--color-card-border);
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.pair-item:hover {
+    background: var(--color-bg-1);
+    border-color: var(--color-primary);
+}
+
+.pair-item.active {
+    background: var(--color-bg-1);
+    border-color: var(--color-primary);
+}
+
+.pair-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-4);
+}
+
+.pair-name {
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-md);
+}
+
+.pair-price {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+}
+
+.pair-change {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+}
+
+.pair-change.positive {
+    color: var(--color-success);
+}
+
+.pair-change.negative {
+    color: var(--color-error);
+}
+
+.analysis-section {
+    margin-bottom: var(--space-16);
+}
+
+.analysis-title {
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-semibold);
+    margin-bottom: var(--space-8);
+    color: var(--color-text);
+}
+
+.indicator-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-8);
+    margin-bottom: var(--space-12);
+}
+
+.indicator-item {
+    padding: var(--space-8);
+    background: var(--color-bg-2);
+    border-radius: var(--radius-base);
+}
+
+.indicator-label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-2);
+}
+
+.indicator-value {
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-semibold);
+    font-family: var(--font-family-mono);
+}
+
+.signal-box {
+    background: var(--color-bg-3);
+    padding: var(--space-16);
+    border-radius: var(--radius-lg);
+    border: 2px solid var(--color-success);
+    margin-bottom: var(--space-16);
+}
+
+.signal-box.sell {
+    background: var(--color-bg-4);
+    border-color: var(--color-error);
+}
+
+.signal-box.hold {
+    background: var(--color-bg-2);
+    border-color: var(--color-warning);
+}
+
+.signal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-12);
+}
+
+.signal-type {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+}
+
+.signal-type.buy {
+    color: var(--color-success);
+}
+
+.signal-type.sell {
+    color: var(--color-error);
+}
+
+.signal-type.hold {
+    color: var(--color-warning);
+}
+
+.confidence-bar {
+    height: 8px;
+    background: rgba(var(--color-gray-400-rgb), 0.2);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+    margin-bottom: var(--space-8);
+}
+
+.confidence-fill {
+    height: 100%;
+    background: var(--color-success);
+    transition: width var(--duration-normal) var(--ease-standard);
+}
+
+.confidence-fill.medium {
+    background: var(--color-warning);
+}
+
+.confidence-fill.low {
+    background: var(--color-error);
+}
+
+.signal-reasons {
+    list-style: none;
+    margin-bottom: var(--space-12);
+}
+
+.signal-reasons li {
+    padding: var(--space-4) 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.signal-reasons li:before {
+    content: "• ";
+    color: var(--color-primary);
+    font-weight: bold;
+    margin-right: var(--space-4);
+}
+
+.orders-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: var(--space-16);
+}
+
+.orders-table th {
+    text-align: left;
+    padding: var(--space-8);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+    border-bottom: 1px solid var(--color-card-border);
+}
+
+.orders-table td {
+    padding: var(--space-8);
+    font-size: var(--font-size-sm);
+    border-bottom: 1px solid var(--color-card-border-inner);
+}
+
+.orders-table tr.winning {
+    background: rgba(var(--color-success-rgb), 0.1);
+}
+
+.orders-table tr.losing {
+    background: rgba(var(--color-error-rgb), 0.1);
+}
+
+.no-orders {
+    text-align: center;
+    padding: var(--space-32);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.btn-close {
+    padding: var(--space-4) var(--space-8);
+    font-size: var(--font-size-xs);
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-content {
+    background: var(--color-surface);
+    padding: var(--space-24);
+    border-radius: var(--radius-lg);
+    max-width: 500px;
+    width: 90%;
+    border: 1px solid var(--color-card-border);
+}
+
+.modal-header {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    margin-bottom: var(--space-16);
+}
+
+.form-group {
+    margin-bottom: var(--space-16);
+}
+
+.form-label {
+    display: block;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    margin-bottom: var(--space-4);
+    color: var(--color-text);
+}
+
+.form-control {
+    width: 100%;
+    padding: var(--space-8) var(--space-12);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    font-size: var(--font-size-md);
+    background: var(--color-background);
+    color: var(--color-text);
+    font-family: var(--font-family-mono);
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: var(--focus-ring);
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: var(--space-8) 0;
+    font-size: var(--font-size-sm);
+}
+
+.info-label {
+    color: var(--color-text-secondary);
+}
+
+.info-value {
+    font-weight: var(--font-weight-semibold);
+    font-family: var(--font-family-mono);
+}
+
+.modal-actions {
+    display: flex;
+    gap: var(--space-8);
+    margin-top: var(--space-16);
+}
+
+.modal-actions .btn {
+    flex: 1;
+}
+
+.notification {
+    position: fixed;
+    top: var(--space-16);
+    right: var(--space-16);
+    background: var(--color-surface);
+    padding: var(--space-16);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-card-border);
+    box-shadow: var(--shadow-lg);
+    z-index: 2000;
+    min-width: 300px;
+    animation: slideIn 0.3s var(--ease-standard);
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.notification.success {
+    border-left: 4px solid var(--color-success);
+}
+
+.notification.error {
+    border-left: 4px solid var(--color-error);
+}
+
+.notification.info {
+    border-left: 4px solid var(--color-primary);
+}
+
+.notification-title {
+    font-weight: var(--font-weight-semibold);
+    margin-bottom: var(--space-4);
+}
+
+.notification-message {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--space-12);
+}
+
+.stats-item {
+    padding: var(--space-12);
+    background: var(--color-bg-1);
+    border-radius: var(--radius-base);
+}
+
+.stats-item-label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-4);
+}
+
+.stats-item-value {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+    font-family: var(--font-family-mono);
+}
+
+.status-badge {
+    display: inline-block;
+    padding: var(--space-4) var(--space-12);
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+}
+
+.status-badge.trading {
+    background: rgba(var(--color-success-rgb), 0.2);
+    color: var(--color-success);
+}
+
+.status-badge.paused {
+    background: rgba(var(--color-warning-rgb), 0.2);
+    color: var(--color-warning);
+}
+
+.trend-badge {
+    padding: var(--space-4) var(--space-8);
+    border-radius: var(--radius-base);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+}
+
+.trend-badge.alcista {
+    background: rgba(var(--color-success-rgb), 0.2);
+    color: var(--color-success);
+}
+
+.trend-badge.bajista {
+    background: rgba(var(--color-error-rgb), 0.2);
+    color: var(--color-error);
+}
+
+.trend-badge.lateral {
+    background: rgba(var(--color-warning-rgb), 0.2);
+    color: var(--color-warning);
+}
+
+.pnl {
+    font-family: var(--font-family-mono);
+    font-weight: var(--font-weight-semibold);
+}
+
+.pnl.positive {
+    color: var(--color-success);
+}
+
+.pnl.negative {
+    color: var(--color-error);
+}
+
+.time-display {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+    </style>
+</head>
+<body>
+    <div class="app-container" id="app">
+        <!-- Header -->
+        <div class="header">
+            <div>
+                <h1 class="header-title">Forex Trading Simulator</h1>
+                <div class="time-display" id="currentTime"></div>
+            </div>
+            <div class="header-controls">
+                <button class="btn btn-secondary" onclick="app.refreshAnalysis()">Nuevo Análisis</button>
+                <button class="btn btn-secondary" onclick="app.exportReport()">Exportar Reporte</button>
+                <button class="btn btn-danger" onclick="app.confirmReset()">Resetear Sesión</button>
+            </div>
+        </div>
+
+        <!-- Stats Bar -->
+        <div class="stats-bar">
+            <div class="stat-card">
+                <div class="stat-label">Capital Virtual</div>
+                <div class="stat-value" id="capitalDisplay">$10,000.00</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Equity</div>
+                <div class="stat-value" id="equityDisplay">$10,000.00</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">P&amp;L Total</div>
+                <div class="stat-value" id="pnlDisplay">$0.00</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Drawdown Máx</div>
+                <div class="stat-value" id="drawdownDisplay">0.00%</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Win Rate</div>
+                <div class="stat-value" id="winRateDisplay">0%</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Estado</div>
+                <div class="stat-value"><span class="status-badge trading">TRADING</span></div>
+            </div>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="main-grid">
+            <!-- Currency Pairs -->
+            <div class="card">
+                <h2 class="card-title">Pares de Divisas</h2>
+                <div class="pair-list" id="pairsList"></div>
+            </div>
+
+            <!-- Technical Analysis -->
+            <div class="card">
+                <h2 class="card-title">Análisis Técnico - <span id="selectedPairName">EUR/USD</span></h2>
+                <div id="analysisContent"></div>
+            </div>
+
+            <!-- Orders Panel -->
+            <div class="card">
+                <h2 class="card-title">Órdenes Abiertas (<span id="openOrdersCount">0</span>)</h2>
+                <div id="openOrdersContent"></div>
+
+                <h2 class="card-title" style="margin-top: var(--space-24);">Histórico (<span id="closedOrdersCount">0</span>)</h2>
+                <div id="closedOrdersContent"></div>
+            </div>
+        </div>
+
+        <!-- Session Statistics -->
+        <div class="card">
+            <h2 class="card-title">Estadísticas de Sesión</h2>
+            <div class="stats-grid" id="sessionStats"></div>
+        </div>
+
+        <!-- Order Modal -->
+        <div class="modal" id="orderModal">
+            <div class="modal-content">
+                <h3 class="modal-header">Ejecutar Orden - <span id="modalPairName"></span></h3>
+                <div class="form-group">
+                    <label class="form-label">Tipo de Orden</label>
+                    <div class="info-value" id="modalOrderType">BUY</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Precio de Entrada</label>
+                    <input type="text" class="form-control" id="modalEntryPrice" readonly>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Stop Loss (pips)</label>
+                    <input type="number" class="form-control" id="modalStopLoss" value="40" min="20" max="100">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Take Profit (pips)</label>
+                    <input type="number" class="form-control" id="modalTakeProfit" value="60" min="30" max="200">
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Riesgo:</span>
+                    <span class="info-value">1% del capital</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Tamaño de Lote:</span>
+                    <span class="info-value" id="modalLotSize">0.25</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">P&amp;L Potencial:</span>
+                    <span class="info-value" id="modalPotentialPnl">$150</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Ratio R:R:</span>
+                    <span class="info-value" id="modalRiskReward">1.5</span>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" onclick="app.closeOrderModal()">Cancelar</button>
+                    <button class="btn btn-danger" onclick="app.confirmOrder()">Confirmar Orden</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+class ForexTradingSimulator {
+    constructor() {
+        this.pairs = [
+            {
+                id: 1,
+                name: 'EUR/USD',
+                symbol: 'eurusd',
+                current_price: 1.0850,
+                bid: 1.0848,
+                ask: 1.0852,
+                high_24h: 1.0880,
+                low_24h: 1.0820,
+                change_pct: 0.23,
+                rsi: 62,
+                macd_signal: 'positive',
+                trend_4h: 'ALCISTA',
+                trend_d1: 'ALCISTA',
+                support1: 1.0820,
+                support2: 1.0780,
+                resistance1: 1.0880,
+                resistance2: 1.0920,
+                atr: 45,
+                pipValue: 0.0001
+            },
+            {
+                id: 2,
+                name: 'GBP/USD',
+                symbol: 'gbpusd',
+                current_price: 1.2750,
+                bid: 1.2748,
+                ask: 1.2752,
+                high_24h: 1.2780,
+                low_24h: 1.2720,
+                change_pct: -0.15,
+                rsi: 45,
+                macd_signal: 'neutral',
+                trend_4h: 'LATERAL',
+                trend_d1: 'ALCISTA',
+                support1: 1.2720,
+                support2: 1.2680,
+                resistance1: 1.2780,
+                resistance2: 1.2820,
+                atr: 52,
+                pipValue: 0.0001
+            },
+            {
+                id: 3,
+                name: 'USD/JPY',
+                symbol: 'usdjpy',
+                current_price: 145.50,
+                bid: 145.48,
+                ask: 145.52,
+                high_24h: 146.20,
+                low_24h: 145.20,
+                change_pct: -0.48,
+                rsi: 38,
+                macd_signal: 'negative',
+                trend_4h: 'BAJISTA',
+                trend_d1: 'BAJISTA',
+                support1: 145.00,
+                support2: 144.50,
+                resistance1: 145.80,
+                resistance2: 146.30,
+                atr: 68,
+                pipValue: 0.01
+            },
+            {
+                id: 4,
+                name: 'AUD/USD',
+                symbol: 'audusd',
+                current_price: 0.6550,
+                bid: 0.6548,
+                ask: 0.6552,
+                high_24h: 0.6570,
+                low_24h: 0.6530,
+                change_pct: 0.15,
+                rsi: 55,
+                macd_signal: 'positive',
+                trend_4h: 'ALCISTA',
+                trend_d1: 'LATERAL',
+                support1: 0.6530,
+                support2: 0.6500,
+                resistance1: 0.6580,
+                resistance2: 0.6620,
+                atr: 38,
+                pipValue: 0.0001
+            },
+            {
+                id: 5,
+                name: 'USD/CAD',
+                symbol: 'usdcad',
+                current_price: 1.3750,
+                bid: 1.3748,
+                ask: 1.3752,
+                high_24h: 1.3780,
+                low_24h: 1.3720,
+                change_pct: -0.22,
+                rsi: 48,
+                macd_signal: 'neutral',
+                trend_4h: 'LATERAL',
+                trend_d1: 'BAJISTA',
+                support1: 1.3720,
+                support2: 1.3680,
+                resistance1: 1.3780,
+                resistance2: 1.3820,
+                atr: 42,
+                pipValue: 0.0001
+            }
+        ];
+
+        this.capital_initial = 10000;
+        this.capital_current = 10000;
+        this.equity = 10000;
+        this.openOrders = [];
+        this.closedOrders = [];
+        this.selectedPair = this.pairs[0];
+        this.orderIdCounter = 1;
+        this.maxDrawdown = 0;
+        this.peakCapital = 10000;
+
+        this.init();
+    }
+
+    init() {
+        this.renderPairs();
+        this.renderAnalysis();
+        this.renderOrders();
+        this.updateStats();
+        this.updateTime();
+        this.startSimulation();
+        this.showNotification('info', 'Sistema inicializado', 'Capital virtual: $10,000');
+    }
+
+    startSimulation() {
+        // Update prices every 2 seconds
+        setInterval(() => {
+            this.updatePrices();
+            this.checkOrders();
+            this.updateStats();
+        }, 2000);
+
+        // Update time every second
+        setInterval(() => {
+            this.updateTime();
+        }, 1000);
+    }
+
+    updateTime() {
+        const now = new Date();
+        const hours = String(now.getUTCHours()).padStart(2, '0');
+        const minutes = String(now.getUTCMinutes()).padStart(2, '0');
+        const seconds = String(now.getUTCSeconds()).padStart(2, '0');
+        document.getElementById('currentTime').textContent = `${hours}:${minutes}:${seconds} UTC`;
+    }
+
+    updatePrices() {
+        this.pairs.forEach(pair => {
+            // Simulate realistic price movement
+            const volatility = pair.atr * 0.00001;
+            const change = (Math.random() - 0.5) * volatility;
+            pair.current_price += change;
+            pair.bid = pair.current_price - (pair.pipValue * 2);
+            pair.ask = pair.current_price + (pair.pipValue * 2);
+
+            // Update 24h change
+            const changePercent = ((pair.current_price - pair.low_24h) / pair.low_24h) * 100;
+            pair.change_pct = changePercent - 0.5;
+
+            // Update indicators slightly
+            pair.rsi += (Math.random() - 0.5) * 2;
+            pair.rsi = Math.max(0, Math.min(100, pair.rsi));
+        });
+
+        this.renderPairs();
+        if (this.selectedPair) {
+            this.renderAnalysis();
+        }
+    }
+
+    checkOrders() {
+        this.openOrders.forEach((order, index) => {
+            const pair = this.pairs.find(p => p.id === order.pairId);
+            if (!pair) return;
+
+            const currentPrice = order.type === 'BUY' ? pair.bid : pair.ask;
+            
+            // Check TP
+            if ((order.type === 'BUY' && currentPrice >= order.tp) || 
+                (order.type === 'SELL' && currentPrice <= order.tp)) {
+                this.closeOrder(order, currentPrice, 'TP');
+            }
+            // Check SL
+            else if ((order.type === 'BUY' && currentPrice <= order.sl) || 
+                     (order.type === 'SELL' && currentPrice >= order.sl)) {
+                this.closeOrder(order, currentPrice, 'SL');
+            }
+        });
+
+        this.renderOrders();
+    }
+
+    closeOrder(order, exitPrice, reason) {
+        const pair = this.pairs.find(p => p.id === order.pairId);
+        const pips = this.calculatePips(order.entry, exitPrice, order.type, pair.pipValue);
+        const pnl = pips * 10 * order.lotSize;
+
+        order.exit = exitPrice;
+        order.pips = pips;
+        order.pnl = pnl;
+        order.status = reason;
+        order.exitTime = new Date().toISOString();
+
+        this.closedOrders.unshift(order);
+        this.openOrders = this.openOrders.filter(o => o.id !== order.id);
+
+        this.capital_current += pnl;
+        this.equity = this.capital_current;
+
+        // Update peak and drawdown
+        if (this.capital_current > this.peakCapital) {
+            this.peakCapital = this.capital_current;
+        }
+        const drawdown = ((this.peakCapital - this.capital_current) / this.peakCapital) * 100;
+        if (drawdown > this.maxDrawdown) {
+            this.maxDrawdown = drawdown;
+        }
+
+        const notifType = pnl > 0 ? 'success' : 'error';
+        const notifTitle = pnl > 0 ? '✓ GANANCIA' : '✗ PÉRDIDA';
+        const notifMsg = `Orden #${order.id} ${pnl > 0 ? '+' : ''}${pips.toFixed(1)} pips ($${pnl.toFixed(2)})`;
+        this.showNotification(notifType, notifTitle, notifMsg);
+
+        this.updateStats();
+    }
+
+    calculatePips(entry, exit, type, pipValue) {
+        const diff = type === 'BUY' ? exit - entry : entry - exit;
+        return diff / pipValue;
+    }
+
+    renderPairs() {
+        const container = document.getElementById('pairsList');
+        container.innerHTML = this.pairs.map(pair => `
+            <div class="pair-item ${this.selectedPair?.id === pair.id ? 'active' : ''}" onclick="app.selectPair(${pair.id})">
+                <div class="pair-header">
+                    <span class="pair-name">${pair.name}</span>
+                    <span class="pair-change ${pair.change_pct >= 0 ? 'positive' : 'negative'}">
+                        ${pair.change_pct >= 0 ? '+' : ''}${pair.change_pct.toFixed(2)}%
+                    </span>
+                </div>
+                <div class="pair-price">${pair.current_price.toFixed(pair.symbol === 'usdjpy' ? 2 : 4)}</div>
+            </div>
+        `).join('');
+    }
+
+    selectPair(pairId) {
+        this.selectedPair = this.pairs.find(p => p.id === pairId);
+        document.getElementById('selectedPairName').textContent = this.selectedPair.name;
+        this.renderPairs();
+        this.renderAnalysis();
+    }
+
+    renderAnalysis() {
+        const pair = this.selectedPair;
+        const signal = this.generateSignal(pair);
+
+        const rsiStatus = pair.rsi > 70 ? 'Sobrecomprado' : pair.rsi < 30 ? 'Sobrevendido' : 'Neutral';
+        const atrStatus = pair.atr > 60 ? 'Alta' : pair.atr < 40 ? 'Baja' : 'Normal';
+
+        const html = `
+            <div class="analysis-section">
+                <h3 class="analysis-title">Indicadores Técnicos</h3>
+                <div class="indicator-grid">
+                    <div class="indicator-item">
+                        <div class="indicator-label">RSI (14)</div>
+                        <div class="indicator-value">${pair.rsi.toFixed(1)} - ${rsiStatus}</div>
+                    </div>
+                    <div class="indicator-item">
+                        <div class="indicator-label">MACD</div>
+                        <div class="indicator-value">${pair.macd_signal.toUpperCase()}</div>
+                    </div>
+                    <div class="indicator-item">
+                        <div class="indicator-label">Tendencia 4H</div>
+                        <div class="indicator-value"><span class="trend-badge ${pair.trend_4h.toLowerCase()}">${pair.trend_4h}</span></div>
+                    </div>
+                    <div class="indicator-item">
+                        <div class="indicator-label">Tendencia D1</div>
+                        <div class="indicator-value"><span class="trend-badge ${pair.trend_d1.toLowerCase()}">${pair.trend_d1}</span></div>
+                    </div>
+                    <div class="indicator-item">
+                        <div class="indicator-label">Volatilidad (ATR)</div>
+                        <div class="indicator-value">${pair.atr.toFixed(0)} - ${atrStatus}</div>
+                    </div>
+                    <div class="indicator-item">
+                        <div class="indicator-label">Cambio 24H</div>
+                        <div class="indicator-value ${pair.change_pct >= 0 ? 'positive' : 'negative'}">
+                            ${pair.change_pct >= 0 ? '+' : ''}${pair.change_pct.toFixed(2)}%
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="analysis-section">
+                <h3 class="analysis-title">Soportes y Resistencias</h3>
+                <div class="indicator-grid">
+                    <div class="indicator-item">
+                        <div class="indicator-label">Resistencia 2</div>
+                        <div class="indicator-value">${pair.resistance2.toFixed(pair.symbol === 'usdjpy' ? 2 : 4)}</div>
+                    </div>
+                    <div class="indicator-item">
+                        <div class="indicator-label">Resistencia 1</div>
+                        <div class="indicator-value">${pair.resistance1.toFixed(pair.symbol === 'usdjpy' ? 2 : 4)}</div>
+                    </div>
+                    <div class="indicator-item">
+                        <div class="indicator-label">Soporte 1</div>
+                        <div class="indicator-value">${pair.support1.toFixed(pair.symbol === 'usdjpy' ? 2 : 4)}</div>
+                    </div>
+                    <div class="indicator-item">
+                        <div class="indicator-label">Soporte 2</div>
+                        <div class="indicator-value">${pair.support2.toFixed(pair.symbol === 'usdjpy' ? 2 : 4)}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="signal-box ${signal.type.toLowerCase()}">
+                <div class="signal-header">
+                    <span class="signal-type ${signal.type.toLowerCase()}">${signal.type}</span>
+                    <span class="signal-type ${signal.type.toLowerCase()}">${signal.confidence}%</span>
+                </div>
+                <div class="confidence-bar">
+                    <div class="confidence-fill ${signal.confidence > 70 ? '' : signal.confidence > 50 ? 'medium' : 'low'}" 
+                         style="width: ${signal.confidence}%"></div>
+                </div>
+                <ul class="signal-reasons">
+                    ${signal.reasons.map(r => `<li>${r}</li>`).join('')}
+                </ul>
+                ${signal.confidence > 70 && signal.type !== 'HOLD' ? 
+                    `<button class="btn btn-primary" onclick="app.openOrderModal('${signal.type}')">EJECUTAR ORDEN</button>` : 
+                    `<button class="btn btn-secondary" disabled>Confianza insuficiente (>70 requerido)</button>`
+                }
+            </div>
+        `;
+
+        document.getElementById('analysisContent').innerHTML = html;
+    }
+
+    generateSignal(pair) {
+        let score = 50;
+        const reasons = [];
+
+        // RSI analysis
+        if (pair.rsi < 30) {
+            score += 15;
+            reasons.push('RSI indica sobreventa (oportunidad de compra)');
+        } else if (pair.rsi > 70) {
+            score -= 15;
+            reasons.push('RSI indica sobrecompra (oportunidad de venta)');
+        } else if (pair.rsi > 45 && pair.rsi < 55) {
+            reasons.push('RSI neutral');
+        }
+
+        // MACD analysis
+        if (pair.macd_signal === 'positive') {
+            score += 10;
+            reasons.push('MACD señal alcista');
+        } else if (pair.macd_signal === 'negative') {
+            score -= 10;
+            reasons.push('MACD señal bajista');
+        }
+
+        // Trend analysis
+        if (pair.trend_4h === 'ALCISTA' && pair.trend_d1 === 'ALCISTA') {
+            score += 15;
+            reasons.push('Tendencia fuerte alcista en 4H y D1');
+        } else if (pair.trend_4h === 'BAJISTA' && pair.trend_d1 === 'BAJISTA') {
+            score -= 15;
+            reasons.push('Tendencia fuerte bajista en 4H y D1');
+        } else if (pair.trend_4h === 'LATERAL') {
+            reasons.push('Mercado lateral en 4H - esperar ruptura');
+        }
+
+        // Price momentum
+        if (pair.change_pct > 0.3) {
+            score += 8;
+            reasons.push('Momentum positivo en 24H');
+        } else if (pair.change_pct < -0.3) {
+            score -= 8;
+            reasons.push('Momentum negativo en 24H');
+        }
+
+        // Volatility
+        if (pair.atr > 60) {
+            reasons.push('Alta volatilidad - gestionar riesgo');
+            score -= 5;
+        }
+
+        // Price position
+        if (pair.current_price < pair.support1) {
+            score += 10;
+            reasons.push('Precio cerca del soporte clave');
+        } else if (pair.current_price > pair.resistance1) {
+            score -= 10;
+            reasons.push('Precio cerca de resistencia clave');
+        }
+
+        score = Math.max(0, Math.min(100, score));
+
+        let type = 'HOLD';
+        if (score > 65) type = 'BUY';
+        else if (score < 35) type = 'SELL';
+
+        return { type, confidence: Math.round(score), reasons };
+    }
+
+    openOrderModal(type) {
+        const modal = document.getElementById('orderModal');
+        const pair = this.selectedPair;
+        
+        document.getElementById('modalPairName').textContent = pair.name;
+        document.getElementById('modalOrderType').textContent = type;
+        
+        const entryPrice = type === 'BUY' ? pair.ask : pair.bid;
+        document.getElementById('modalEntryPrice').value = entryPrice.toFixed(pair.symbol === 'usdjpy' ? 2 : 4);
+        
+        modal.classList.add('active');
+        this.currentOrderType = type;
+        this.updateOrderCalculations();
+
+        // Add event listeners for calculations
+        document.getElementById('modalStopLoss').addEventListener('input', () => this.updateOrderCalculations());
+        document.getElementById('modalTakeProfit').addEventListener('input', () => this.updateOrderCalculations());
+    }
+
+    updateOrderCalculations() {
+        const pair = this.selectedPair;
+        const slPips = parseFloat(document.getElementById('modalStopLoss').value) || 40;
+        const tpPips = parseFloat(document.getElementById('modalTakeProfit').value) || 60;
+        
+        const riskAmount = this.capital_current * 0.01;
+        const lotSize = riskAmount / (slPips * 10);
+        const potentialPnl = tpPips * 10 * lotSize;
+        const riskReward = tpPips / slPips;
+
+        document.getElementById('modalLotSize').textContent = lotSize.toFixed(2);
+        document.getElementById('modalPotentialPnl').textContent = `$${potentialPnl.toFixed(2)}`;
+        document.getElementById('modalRiskReward').textContent = riskReward.toFixed(2);
+    }
+
+    closeOrderModal() {
+        document.getElementById('orderModal').classList.remove('active');
+    }
+
+    confirmOrder() {
+        const pair = this.selectedPair;
+        const type = this.currentOrderType;
+        const slPips = parseFloat(document.getElementById('modalStopLoss').value);
+        const tpPips = parseFloat(document.getElementById('modalTakeProfit').value);
+        
+        if (slPips < 20 || slPips > 100) {
+            alert('Stop Loss debe estar entre 20 y 100 pips');
+            return;
+        }
+        
+        const riskReward = tpPips / slPips;
+        if (riskReward < 1.5) {
+            alert('Ratio R:R debe ser >= 1.5');
+            return;
+        }
+
+        const entryPrice = type === 'BUY' ? pair.ask : pair.bid;
+        const riskAmount = this.capital_current * 0.01;
+        const lotSize = riskAmount / (slPips * 10);
+        
+        const slPrice = type === 'BUY' ? 
+            entryPrice - (slPips * pair.pipValue) : 
+            entryPrice + (slPips * pair.pipValue);
+        
+        const tpPrice = type === 'BUY' ? 
+            entryPrice + (tpPips * pair.pipValue) : 
+            entryPrice - (tpPips * pair.pipValue);
+
+        const order = {
+            id: this.orderIdCounter++,
+            pairId: pair.id,
+            pair: pair.name,
+            type: type,
+            entry: entryPrice,
+            sl: slPrice,
+            tp: tpPrice,
+            lotSize: lotSize,
+            status: 'OPEN',
+            openTime: new Date().toISOString()
+        };
+
+        this.openOrders.push(order);
+        this.closeOrderModal();
+        this.renderOrders();
+        this.showNotification('info', 'ORDEN ABIERTA', `#${order.id} - ${type} ${pair.name}`);
+    }
+
+    renderOrders() {
+        // Open Orders
+        const openContainer = document.getElementById('openOrdersContent');
+        document.getElementById('openOrdersCount').textContent = this.openOrders.length;
+
+        if (this.openOrders.length === 0) {
+            openContainer.innerHTML = '<div class="no-orders">Sin posiciones abiertas</div>';
+        } else {
+            const openHtml = `
+                <table class="orders-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Par</th>
+                            <th>Dir</th>
+                            <th>Entrada</th>
+                            <th>P&amp;L</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${this.openOrders.map(order => {
+                            const pair = this.pairs.find(p => p.id === order.pairId);
+                            const currentPrice = order.type === 'BUY' ? pair.bid : pair.ask;
+                            const pips = this.calculatePips(order.entry, currentPrice, order.type, pair.pipValue);
+                            const pnl = pips * 10 * order.lotSize;
+                            
+                            return `
+                                <tr>
+                                    <td>#${order.id}</td>
+                                    <td>${order.pair}</td>
+                                    <td><strong>${order.type}</strong></td>
+                                    <td>${order.entry.toFixed(pair.symbol === 'usdjpy' ? 2 : 4)}</td>
+                                    <td class="pnl ${pnl >= 0 ? 'positive' : 'negative'}">
+                                        ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}<br>
+                                        <small>(${pips >= 0 ? '+' : ''}${pips.toFixed(1)} pips)</small>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-danger btn-close" onclick="app.manualCloseOrder(${order.id})">Cerrar</button>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+            openContainer.innerHTML = openHtml;
+        }
+
+        // Closed Orders
+        const closedContainer = document.getElementById('closedOrdersContent');
+        document.getElementById('closedOrdersCount').textContent = this.closedOrders.length;
+
+        if (this.closedOrders.length === 0) {
+            closedContainer.innerHTML = '<div class="no-orders">Sin operaciones cerradas</div>';
+        } else {
+            const closedHtml = `
+                <table class="orders-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Par</th>
+                            <th>Dir</th>
+                            <th>Pips</th>
+                            <th>P&amp;L</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${this.closedOrders.slice(0, 10).map(order => `
+                            <tr class="${order.pnl >= 0 ? 'winning' : 'losing'}">
+                                <td>#${order.id}</td>
+                                <td>${order.pair}</td>
+                                <td><strong>${order.type}</strong></td>
+                                <td class="pnl ${order.pips >= 0 ? 'positive' : 'negative'}">
+                                    ${order.pips >= 0 ? '+' : ''}${order.pips.toFixed(1)}
+                                </td>
+                                <td class="pnl ${order.pnl >= 0 ? 'positive' : 'negative'}">
+                                    ${order.pnl >= 0 ? '+' : ''}$${order.pnl.toFixed(2)}
+                                </td>
+                                <td>${order.status}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            closedContainer.innerHTML = closedHtml;
+        }
+    }
+
+    manualCloseOrder(orderId) {
+        const order = this.openOrders.find(o => o.id === orderId);
+        if (!order) return;
+
+        const pair = this.pairs.find(p => p.id === order.pairId);
+        const currentPrice = order.type === 'BUY' ? pair.bid : pair.ask;
+        
+        this.closeOrder(order, currentPrice, 'MANUAL');
+    }
+
+    updateStats() {
+        // Update top bar
+        document.getElementById('capitalDisplay').textContent = `$${this.capital_current.toFixed(2)}`;
+        
+        // Calculate equity with open positions
+        let floatingPnl = 0;
+        this.openOrders.forEach(order => {
+            const pair = this.pairs.find(p => p.id === order.pairId);
+            const currentPrice = order.type === 'BUY' ? pair.bid : pair.ask;
+            const pips = this.calculatePips(order.entry, currentPrice, order.type, pair.pipValue);
+            floatingPnl += pips * 10 * order.lotSize;
+        });
+        
+        this.equity = this.capital_current + floatingPnl;
+        document.getElementById('equityDisplay').textContent = `$${this.equity.toFixed(2)}`;
+        
+        const totalPnl = this.capital_current - this.capital_initial;
+        const pnlElement = document.getElementById('pnlDisplay');
+        pnlElement.textContent = `${totalPnl >= 0 ? '+' : ''}$${totalPnl.toFixed(2)}`;
+        pnlElement.className = `stat-value ${totalPnl >= 0 ? 'positive' : 'negative'}`;
+        
+        document.getElementById('drawdownDisplay').textContent = `${this.maxDrawdown.toFixed(2)}%`;
+
+        // Calculate win rate
+        const totalTrades = this.closedOrders.length;
+        const winningTrades = this.closedOrders.filter(o => o.pnl > 0).length;
+        const winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
+        document.getElementById('winRateDisplay').textContent = `${winRate.toFixed(0)}%`;
+
+        // Session statistics
+        if (totalTrades > 0) {
+            const losingTrades = totalTrades - winningTrades;
+            const totalPips = this.closedOrders.reduce((sum, o) => sum + o.pips, 0);
+            const avgPips = totalPips / totalTrades;
+            const winningPips = this.closedOrders.filter(o => o.pnl > 0).reduce((sum, o) => sum + o.pips, 0);
+            const losingPips = Math.abs(this.closedOrders.filter(o => o.pnl < 0).reduce((sum, o) => sum + o.pips, 0));
+            const profitFactor = losingPips > 0 ? winningPips / losingPips : winningPips;
+            const bestTrade = Math.max(...this.closedOrders.map(o => o.pips));
+            const worstTrade = Math.min(...this.closedOrders.map(o => o.pips));
+
+            // Calculate Sharpe Ratio
+            const returns = this.closedOrders.map(o => o.pnl);
+            const avgReturn = returns.reduce((a, b) => a + b, 0) / returns.length;
+            const variance = returns.reduce((sum, r) => sum + Math.pow(r - avgReturn, 2), 0) / returns.length;
+            const stdDev = Math.sqrt(variance);
+            const sharpeRatio = stdDev > 0 ? avgReturn / stdDev : 0;
+
+            const statsHtml = `
+                <div class="stats-item">
+                    <div class="stats-item-label">Total Operaciones</div>
+                    <div class="stats-item-value">${totalTrades}</div>
+                </div>
+                <div class="stats-item">
+                    <div class="stats-item-label">Ganadoras</div>
+                    <div class="stats-item-value" style="color: var(--color-success);">${winningTrades}</div>
+                </div>
+                <div class="stats-item">
+                    <div class="stats-item-label">Perdedoras</div>
+                    <div class="stats-item-value" style="color: var(--color-error);">${losingTrades}</div>
+                </div>
+                <div class="stats-item">
+                    <div class="stats-item-label">Win Rate</div>
+                    <div class="stats-item-value">${winRate.toFixed(1)}%</div>
+                </div>
+                <div class="stats-item">
+                    <div class="stats-item-label">Profit Factor</div>
+                    <div class="stats-item-value">${profitFactor.toFixed(2)}</div>
+                </div>
+                <div class="stats-item">
+                    <div class="stats-item-label">Pips Totales</div>
+                    <div class="stats-item-value ${totalPips >= 0 ? 'positive' : 'negative'}">
+                        ${totalPips >= 0 ? '+' : ''}${totalPips.toFixed(1)}
+                    </div>
+                </div>
+                <div class="stats-item">
+                    <div class="stats-item-label">Pips Promedio</div>
+                    <div class="stats-item-value">${avgPips.toFixed(1)}</div>
+                </div>
+                <div class="stats-item">
+                    <div class="stats-item-label">Sharpe Ratio</div>
+                    <div class="stats-item-value">${sharpeRatio.toFixed(2)}</div>
+                </div>
+                <div class="stats-item">
+                    <div class="stats-item-label">Mejor Trade</div>
+                    <div class="stats-item-value" style="color: var(--color-success);">+${bestTrade.toFixed(1)} pips</div>
+                </div>
+                <div class="stats-item">
+                    <div class="stats-item-label">Peor Trade</div>
+                    <div class="stats-item-value" style="color: var(--color-error);">${worstTrade.toFixed(1)} pips</div>
+                </div>
+            `;
+            document.getElementById('sessionStats').innerHTML = statsHtml;
+        } else {
+            document.getElementById('sessionStats').innerHTML = '<div class="no-orders">Sin operaciones cerradas aún</div>';
+        }
+    }
+
+    showNotification(type, title, message) {
+        const notif = document.createElement('div');
+        notif.className = `notification ${type}`;
+        notif.innerHTML = `
+            <div class="notification-title">${title}</div>
+            <div class="notification-message">${message}</div>
+        `;
+        document.body.appendChild(notif);
+
+        setTimeout(() => {
+            notif.remove();
+        }, 5000);
+    }
+
+    refreshAnalysis() {
+        // Slightly update indicators
+        this.pairs.forEach(pair => {
+            pair.rsi += (Math.random() - 0.5) * 5;
+            pair.rsi = Math.max(0, Math.min(100, pair.rsi));
+        });
+        
+        this.renderAnalysis();
+        this.showNotification('info', 'Análisis actualizado', 'Indicadores técnicos actualizados');
+    }
+
+    confirmReset() {
+        if (confirm('¿Estás seguro de resetear la sesión? Se perderán todos los datos.')) {
+            this.resetSession();
+        }
+    }
+
+    resetSession() {
+        this.capital_current = this.capital_initial;
+        this.equity = this.capital_initial;
+        this.openOrders = [];
+        this.closedOrders = [];
+        this.maxDrawdown = 0;
+        this.peakCapital = this.capital_initial;
+        this.orderIdCounter = 1;
+        
+        this.renderOrders();
+        this.updateStats();
+        this.showNotification('info', 'Sesión reseteada', 'Capital restaurado a $10,000');
+    }
+
+    exportReport() {
+        const report = {
+            timestamp: new Date().toISOString(),
+            capital_initial: this.capital_initial,
+            capital_final: this.capital_current,
+            total_pnl: this.capital_current - this.capital_initial,
+            total_trades: this.closedOrders.length,
+            winning_trades: this.closedOrders.filter(o => o.pnl > 0).length,
+            losing_trades: this.closedOrders.filter(o => o.pnl < 0).length,
+            max_drawdown: this.maxDrawdown,
+            closed_orders: this.closedOrders,
+            open_orders: this.openOrders
+        };
+
+        const dataStr = JSON.stringify(report, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `forex-trading-report-${Date.now()}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+
+        this.showNotification('success', 'Reporte exportado', 'Archivo JSON descargado');
+    }
+}
+
+// Initialize app
+const app = new ForexTradingSimulator();
+    </script>
+</body>
+</html>

@@ -684,6 +684,68 @@ const api = {
     const { data } = await axiosInstance.get('/health/endpoints')
     return data
   },
+
+  // Forex Expert Trading System
+  analyzeForexPair: async (pair: string, timeframe: string = 'daily') => {
+    try {
+      const { data } = await requestWithRetry(() =>
+        axiosInstance.get(`/forex/expert/analyze/${pair}`, {
+          params: { timeframe },
+        })
+      )
+      return data
+    } catch (error: any) {
+      console.error('Error analyzing forex pair:', error)
+      return null
+    }
+  },
+
+  getForexSignals: async (minConfidence: number = 70) => {
+    try {
+      const { data } = await requestWithRetry(() =>
+        axiosInstance.get('/forex/expert/signals', {
+          params: { min_confidence: minConfidence },
+        })
+      )
+      return data
+    } catch (error: any) {
+      console.error('Error fetching forex signals:', error)
+      return { total_signals: 0, signals: [] }
+    }
+  },
+
+  createVirtualOrder: async (orderData: {
+    pair: string
+    direction: string
+    entry_price: number
+    stop_loss: number
+    take_profit: number
+    lot_size: number
+    risk_percent?: number
+    signal_confidence?: number
+  }) => {
+    try {
+      const { data } = await requestWithRetry(() =>
+        axiosInstance.post('/forex/expert/virtual-order', orderData)
+      )
+      return data
+    } catch (error: any) {
+      console.error('Error creating virtual order:', error)
+      throw error
+    }
+  },
+
+  getSessionStats: async () => {
+    try {
+      const { data } = await requestWithRetry(() =>
+        axiosInstance.get('/forex/expert/session-stats')
+      )
+      return data
+    } catch (error: any) {
+      console.error('Error fetching session stats:', error)
+      return null
+    }
+  },
 }
 
 export default api

@@ -19,6 +19,7 @@ import { TradingControl } from '@/components/TradingControl'
 import { P2PTradingPanel } from '@/components/P2PTradingPanel'
 import { MarketAnalysis } from '@/components/MarketAnalysis'
 import { ReportsExport } from '@/components/ReportsExport'
+import { ForexExpertTrading } from '@/components/ForexExpertTrading'
 
 type TabType = 'overview' | 'metrics' | 'performance' | 'inventory' | 'trading' | 'market' | 'reports' | 'arbitrage' | 'liquidity' | 'risk' | 'pricing'
 
@@ -267,6 +268,7 @@ export default function Dashboard() {
               {/* Trading Control Tab */}
               {activeTab === 'trading' && (
                 <div className="space-y-4 sm:space-y-6 lg:space-y-8">
+                  <ForexExpertTrading />
                   <TradingControl />
                   <P2PTradingPanel />
                 </div>
