@@ -51,6 +51,30 @@ body {
   background: #555;
 }
 
+/* Horizontal scrollbar for tabs */
+.tabs-scroll-container {
+  scrollbar-width: thin;
+  scrollbar-color: #4B5563 transparent;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tabs-scroll-container::-webkit-scrollbar {
+  height: 6px;
+}
+
+.tabs-scroll-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tabs-scroll-container::-webkit-scrollbar-thumb {
+  background-color: #4B5563;
+  border-radius: 3px;
+}
+
+.tabs-scroll-container::-webkit-scrollbar-thumb:hover {
+  background-color: #6B7280;
+}
+
 /* Animations */
 @keyframes pulse-slow {
   0%, 100% {

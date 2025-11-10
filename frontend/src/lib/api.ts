@@ -375,6 +375,31 @@ const api = {
     return data
   },
 
+  // P2P Trading
+  executeP2PTrade: async (request: {
+    asset: string
+    fiat: string
+    trade_type: string
+    amount: number
+    price: number
+    payment_methods: string[]
+    min_amount?: number
+    max_amount?: number
+  }) => {
+    const { data } = await axiosInstance.post('/p2p-trading/execute', request)
+    return data
+  },
+
+  cancelP2PTrade: async (tradeId: number) => {
+    const { data } = await axiosInstance.post('/p2p-trading/cancel', { trade_id: tradeId })
+    return data
+  },
+
+  getP2POrders: async () => {
+    const { data } = await axiosInstance.get('/p2p-trading/orders')
+    return data
+  },
+
   // Spot Trading
   getSpotBalance: async (asset = 'USDT') => {
     const { data } = await axiosInstance.get('/spot/balance', {

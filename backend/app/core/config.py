@@ -40,6 +40,14 @@ class Settings(BaseSettings):
     BINANCE_API_SECRET: str
     BINANCE_TESTNET: bool = False
 
+    # Binance P2P Browser Automation
+    BINANCE_EMAIL: str = Field(default="", env="BINANCE_EMAIL")
+    BINANCE_PASSWORD: str = Field(default="", env="BINANCE_PASSWORD")
+    BINANCE_2FA_ENABLED: bool = Field(default=False, env="BINANCE_2FA_ENABLED")
+    BROWSER_HEADLESS: bool = Field(default=True, env="BROWSER_HEADLESS")
+    BROWSER_TIMEOUT: int = Field(default=30000, env="BROWSER_TIMEOUT")
+    BROWSER_POOL_SIZE: int = Field(default=1, env="BROWSER_POOL_SIZE")
+
     # Trading Configuration
     TRADING_MODE: Literal["manual", "auto", "hybrid"] = "hybrid"
     PROFIT_MARGIN_COP: float = 2.5

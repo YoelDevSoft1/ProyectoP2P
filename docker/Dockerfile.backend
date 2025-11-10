@@ -23,6 +23,10 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
+# Instalar navegadores y dependencias de Playwright
+RUN playwright install chromium && \
+    playwright install-deps chromium
+
 # Copiar código de la aplicación
 COPY . .
 

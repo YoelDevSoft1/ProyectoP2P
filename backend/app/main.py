@@ -13,7 +13,18 @@ from app.core.database import init_db, close_db_connections
 from app.core.database_async import init_async_db, close_async_db_connections
 from app.core.redis_pool import redis_pool
 from app.core.metrics import metrics
-from app.api.endpoints import health, trades, prices, analytics, spot, advanced_arbitrage, dynamic_pricing, market_making, order_execution
+from app.api.endpoints import (
+    advanced_arbitrage,
+    analytics,
+    health,
+    market_making,
+    order_execution,
+    p2p_trading,
+    prices,
+    spot,
+    trades,
+    dynamic_pricing,
+)
 
 # Configurar logging estructurado
 structlog.configure(
@@ -204,6 +215,12 @@ app.include_router(
     order_execution.router,
     prefix=f"{settings.API_V1_STR}",
     tags=["order-execution"]
+)
+
+app.include_router(
+    p2p_trading.router,
+    prefix=f"{settings.API_V1_STR}",
+    tags=["p2p-trading"]
 )
 
 

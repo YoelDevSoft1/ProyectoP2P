@@ -177,7 +177,10 @@ class MarketMakingService:
             # 4. Actualizar si es necesario
             if needs_update:
                 # Cancelar órdenes antiguas (si es posible)
-                # TODO: Implementar cancelación de órdenes en Binance P2P
+                if buy_order and buy_order.get("order_id"):
+                    await self._cancel_order_real(buy_order["order_id"])
+                if sell_order and sell_order.get("order_id"):
+                    await self._cancel_order_real(sell_order["order_id"])
 
                 # Publicar nuevas órdenes
                 new_buy_order = await self._publish_buy_order(
@@ -395,6 +398,21 @@ class MarketMakingService:
         else:
             return "✅ INVENTARIO BALANCEADO - Operar normalmente"
 
+    async def _get_available_payment_methods(self, asset: str, fiat: str) -> List[str]:
+        """Obtiene métodos de pago sugeridos desde el servicio de Binance."""
+        try:
+            methods = await self.p2p_service.get_payment_methods(fiat.upper())
+            if methods:
+                return methods
+        except Exception as exc:
+            logger.warning(
+                "market_making.payment_methods_fallback",
+                asset=asset,
+                fiat=fiat,
+                error=str(exc),
+            )
+        return ["BankTransfer"]
+
     async def _publish_buy_order(
         self,
         asset: str,
@@ -402,45 +420,67 @@ class MarketMakingService:
         price: float,
         amount: float
     ) -> Dict:
-        """
-        Publica orden de compra en Binance P2P.
+        """Publica una orden real de compra en Binance P2P."""
 
-        NOTA: Esto requiere integración con Binance P2P API para publicar órdenes.
-        Por ahora, simulamos la publicación.
-        """
+        from app.services.p2p_trading_service import P2PTradingService
 
+        p2p_service = P2PTradingService()
         try:
-            # TODO: Implementar publicación real en Binance P2P
-            # Por ahora, retornamos simulación
-
-            order_id = f"MM_BUY_{asset}_{fiat}_{datetime.utcnow().timestamp()}"
-
-            logger.info(
-                f"Publishing buy order: {order_id}",
+            payment_methods = await self._get_available_payment_methods(asset, fiat)
+            result = await p2p_service.execute_trade(
                 asset=asset,
                 fiat=fiat,
+                trade_type="BUY",
+                amount=amount,
                 price=price,
-                amount=amount
+                payment_methods=payment_methods,
             )
 
+            if result.get("success"):
+                order_payload = {
+                    "success": True,
+                    "order_id": result.get("order_id"),
+                    "trade_id": result.get("trade_id"),
+                    "type": "BUY",
+                    "asset": asset,
+                    "fiat": fiat,
+                    "price": price,
+                    "amount": amount,
+                    "payment_methods": payment_methods,
+                    "status": "active",
+                    "created_at": datetime.utcnow().isoformat(),
+                }
+                logger.info("market_making.buy_order_published", **order_payload)
+                return order_payload
+
+            error_msg = result.get("error", "No se pudo publicar la orden de compra")
+            logger.error("market_making.buy_order_failed", error=error_msg)
             return {
-                "order_id": order_id,
+                "success": False,
+                "order_id": None,
                 "type": "BUY",
                 "asset": asset,
                 "fiat": fiat,
                 "price": price,
                 "amount": amount,
-                "status": "active",
-                "created_at": datetime.utcnow().isoformat()
+                "status": "failed",
+                "error": error_msg,
             }
-
-        except Exception as e:
-            logger.error(f"Error publishing buy order: {str(e)}")
+        except Exception as exc:
+            logger.error("market_making.buy_order_exception", error=str(exc))
             return {
+                "success": False,
                 "order_id": None,
-                "error": str(e),
-                "status": "failed"
+                "type": "BUY",
+                "asset": asset,
+                "fiat": fiat,
+                "price": price,
+                "amount": amount,
+                "status": "failed",
+                "error": str(exc),
             }
+        finally:
+            await p2p_service.close()
 
     async def _publish_sell_order(
         self,
@@ -449,45 +489,84 @@ class MarketMakingService:
         price: float,
         amount: float
     ) -> Dict:
-        """
-        Publica orden de venta en Binance P2P.
+        """Publica una orden real de venta en Binance P2P."""
 
-        NOTA: Esto requiere integración con Binance P2P API para publicar órdenes.
-        Por ahora, simulamos la publicación.
-        """
+        from app.services.p2p_trading_service import P2PTradingService
 
+        p2p_service = P2PTradingService()
         try:
-            # TODO: Implementar publicación real en Binance P2P
-            # Por ahora, retornamos simulación
-
-            order_id = f"MM_SELL_{asset}_{fiat}_{datetime.utcnow().timestamp()}"
-
-            logger.info(
-                f"Publishing sell order: {order_id}",
+            payment_methods = await self._get_available_payment_methods(asset, fiat)
+            result = await p2p_service.execute_trade(
                 asset=asset,
                 fiat=fiat,
+                trade_type="SELL",
+                amount=amount,
                 price=price,
-                amount=amount
+                payment_methods=payment_methods,
             )
 
+            if result.get("success"):
+                order_payload = {
+                    "success": True,
+                    "order_id": result.get("order_id"),
+                    "trade_id": result.get("trade_id"),
+                    "type": "SELL",
+                    "asset": asset,
+                    "fiat": fiat,
+                    "price": price,
+                    "amount": amount,
+                    "payment_methods": payment_methods,
+                    "status": "active",
+                    "created_at": datetime.utcnow().isoformat(),
+                }
+                logger.info("market_making.sell_order_published", **order_payload)
+                return order_payload
+
+            error_msg = result.get("error", "No se pudo publicar la orden de venta")
+            logger.error("market_making.sell_order_failed", error=error_msg)
             return {
-                "order_id": order_id,
+                "success": False,
+                "order_id": None,
                 "type": "SELL",
                 "asset": asset,
                 "fiat": fiat,
                 "price": price,
                 "amount": amount,
-                "status": "active",
-                "created_at": datetime.utcnow().isoformat()
+                "status": "failed",
+                "error": error_msg,
             }
-
-        except Exception as e:
-            logger.error(f"Error publishing sell order: {str(e)}")
+        except Exception as exc:
+            logger.error("market_making.sell_order_exception", error=str(exc))
             return {
+                "success": False,
                 "order_id": None,
-                "error": str(e),
-                "status": "failed"
+                "type": "SELL",
+                "asset": asset,
+                "fiat": fiat,
+                "price": price,
+                "amount": amount,
+                "status": "failed",
+                "error": str(exc),
             }
+        finally:
+            await p2p_service.close()
+
+    async def _cancel_order_real(self, order_id: str) -> Dict:
+        """Cancela una orden real publicada en Binance P2P."""
+        if not order_id:
+            return {"success": False, "error": "order_id es requerido"}
+
+        from app.services.p2p_trading_service import P2PTradingService
+
+        p2p_service = P2PTradingService()
+        try:
+            await p2p_service.initialize()
+            return await p2p_service.browser_service.cancel_p2p_order(order_id)
+        except Exception as exc:
+            logger.error("market_making.cancel_order_failed", order_id=order_id, error=str(exc))
+            return {"success": False, "error": str(exc)}
+        finally:
+            await p2p_service.close()
 
     async def stop_market_making(
         self,
@@ -505,7 +584,15 @@ class MarketMakingService:
                     "error": "Market making no está activo para este par"
                 }
 
-            # TODO: Cancelar órdenes activas en Binance P2P
+            active = self.active_orders[key]
+            buy_order = active.get("buy_order")
+            sell_order = active.get("sell_order")
+
+            if buy_order and buy_order.get("order_id"):
+                await self._cancel_order_real(buy_order["order_id"])
+
+            if sell_order and sell_order.get("order_id"):
+                await self._cancel_order_real(sell_order["order_id"])
 
             # Remover de órdenes activas
             del self.active_orders[key]
