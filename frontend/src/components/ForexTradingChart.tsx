@@ -149,19 +149,24 @@ export function ForexTradingChart({ pair, timeframe = '1h', height = 500 }: Fore
 
     // Manejar resize
     const handleResize = () => {
-      if (chartContainerRef.current && chartRef.current) {
-        chartRef.current.applyOptions({
-          width: chartContainerRef.current.clientWidth,
-        })
-      }
-      if (volumeContainerRef.current && volumeChartRef.current) {
-        try {
-          volumeChartRef.current.applyOptions({
-            width: volumeContainerRef.current.clientWidth,
+      try {
+        if (chartContainerRef.current && chartRef.current) {
+          chartRef.current.applyOptions({
+            width: chartContainerRef.current.clientWidth,
           })
-        } catch (e) {
-          // Ignorar errores si el gráfico fue eliminado
         }
+        if (volumeContainerRef.current && volumeChartRef.current) {
+          try {
+            volumeChartRef.current.applyOptions({
+              width: volumeContainerRef.current.clientWidth,
+            })
+          } catch (e) {
+            // Ignorar errores si el gráfico fue eliminado
+          }
+        }
+      } catch (e) {
+        // Ignorar errores de resize
+        console.warn('Error resizing chart:', e)
       }
     }
 
@@ -170,7 +175,11 @@ export function ForexTradingChart({ pair, timeframe = '1h', height = 500 }: Fore
     return () => {
       window.removeEventListener('resize', handleResize)
       if (chartRef.current) {
-        chartRef.current.remove()
+        try {
+          chartRef.current.remove()
+        } catch (e) {
+          // Ignorar si ya fue eliminado
+        }
         chartRef.current = null
       }
     }
@@ -180,77 +189,67 @@ export function ForexTradingChart({ pair, timeframe = '1h', height = 500 }: Fore
   useEffect(() => {
     if (!volumeContainerRef.current) return
 
-    const volumeChart = createChart(volumeContainerRef.current, {
-      layout: {
-        background: { type: ColorType.Solid, color: '#1a1a1a' },
-        textColor: '#9ca3af',
-        fontSize: 11,
-      },
-      grid: {
-        vertLines: {
-          visible: false,
-        },
-        horzLines: {
-          color: '#2a2a2a',
-          style: 1,
-        },
-      },
-      width: volumeContainerRef.current.clientWidth,
-      height: 100,
-      timeScale: {
-        visible: false, // Ocultar escala de tiempo en volumen (se sincroniza con el principal)
-        borderColor: '#3a3a3a',
-      },
-      rightPriceScale: {
-        visible: false,
-      },
-      leftPriceScale: {
-        visible: false,
-      },
-      crosshair: {
-        mode: 0, // Solo línea vertical
-        vertLine: {
-          color: '#6b7280',
-          width: 1,
-          style: 3,
-        },
-        horzLine: {
-          visible: false,
-        },
-      },
-    })
+    let volumeChart: IChartApi | null = null
+    let volumeSeries: ISeriesApi<'Histogram'> | null = null
 
-    // Sincronizar escalas de tiempo (solo si el gráfico principal existe)
-    if (chartRef.current) {
-      try {
-        volumeChart.timeScale().subscribeVisibleTimeRangeChange((timeRange) => {
-          if (chartRef.current && timeRange) {
-            try {
-              chartRef.current.timeScale().setVisibleRange(timeRange)
-            } catch (e) {
-              // Ignorar errores de sincronización
-            }
-          }
-        })
-      } catch (e) {
-        // Ignorar errores de suscripción
-      }
+    try {
+      volumeChart = createChart(volumeContainerRef.current, {
+        layout: {
+          background: { type: ColorType.Solid, color: '#1a1a1a' },
+          textColor: '#9ca3af',
+          fontSize: 11,
+        },
+        grid: {
+          vertLines: {
+            visible: false,
+          },
+          horzLines: {
+            color: '#2a2a2a',
+            style: 1,
+          },
+        },
+        width: volumeContainerRef.current.clientWidth,
+        height: 100,
+        timeScale: {
+          visible: false, // Ocultar escala de tiempo en volumen (se sincroniza con el principal)
+          borderColor: '#3a3a3a',
+        },
+        rightPriceScale: {
+          visible: false,
+        },
+        leftPriceScale: {
+          visible: false,
+        },
+        crosshair: {
+          mode: 0, // Solo línea vertical
+          vertLine: {
+            color: '#6b7280',
+            width: 1,
+            style: 3,
+          },
+          horzLine: {
+            visible: false,
+          },
+        },
+      })
+
+      volumeSeries = volumeChart.addHistogramSeries({
+        color: '#26a69a40',
+        priceFormat: {
+          type: 'volume',
+        },
+        priceScaleId: '',
+        scaleMargins: {
+          top: 0.1,
+          bottom: 0.1,
+        },
+      })
+
+      volumeChartRef.current = volumeChart
+      volumeSeriesRef.current = volumeSeries
+    } catch (e) {
+      console.error('Error creating volume chart:', e)
     }
-
-    const volumeSeries = volumeChart.addHistogramSeries({
-      color: '#26a69a40',
-      priceFormat: {
-        type: 'volume',
-      },
-      priceScaleId: '',
-      scaleMargins: {
-        top: 0.1,
-        bottom: 0.1,
-      },
-    })
-
-    volumeChartRef.current = volumeChart
-    volumeSeriesRef.current = volumeSeries
 
     return () => {
       if (volumeChartRef.current) {
@@ -260,6 +259,7 @@ export function ForexTradingChart({ pair, timeframe = '1h', height = 500 }: Fore
           // Ignorar errores si ya fue eliminado
         }
         volumeChartRef.current = null
+        volumeSeriesRef.current = null
       }
     }
   }, [])
@@ -318,17 +318,27 @@ export function ForexTradingChart({ pair, timeframe = '1h', height = 500 }: Fore
           volumeSeriesRef.current.setData(volumeData)
         }
 
-        // Sincronizar escalas de tiempo
-        if (chartRef.current && volumeChartRef.current) {
+        // Sincronizar escalas de tiempo y auto-scroll
+        if (chartRef.current && candleData.length > 0) {
           try {
-            const timeRange = chartRef.current.timeScale().getVisibleRange()
-            if (timeRange) {
-              volumeChartRef.current.timeScale().setVisibleRange(timeRange)
-            }
-            // Auto-scroll al final
-            if (candleData.length > 0) {
-              chartRef.current.timeScale().scrollToPosition(-1, false)
-              volumeChartRef.current.timeScale().scrollToPosition(-1, false)
+            // Auto-scroll al final del gráfico principal
+            chartRef.current.timeScale().scrollToPosition(-1, false)
+            
+            // Sincronizar volumen después de un pequeño delay para evitar errores
+            if (volumeChartRef.current) {
+              setTimeout(() => {
+                if (chartRef.current && volumeChartRef.current) {
+                  try {
+                    const timeRange = chartRef.current.timeScale().getVisibleRange()
+                    if (timeRange) {
+                      volumeChartRef.current.timeScale().setVisibleRange(timeRange)
+                      volumeChartRef.current.timeScale().scrollToPosition(-1, false)
+                    }
+                  } catch (e) {
+                    // Ignorar errores de sincronización si el gráfico fue eliminado
+                  }
+                }
+              }, 50)
             }
           } catch (e) {
             // Ignorar errores si los gráficos fueron eliminados
@@ -359,35 +369,41 @@ export function ForexTradingChart({ pair, timeframe = '1h', height = 500 }: Fore
     if (!currentPrice) return
 
     const interval = setInterval(() => {
-      if (candlestickSeriesRef.current && chartRef.current) {
-        const now = Math.floor(Date.now() / 1000) as Time
-        const lastCandle = candlestickSeriesRef.current.data().slice(-1)[0]
-        
-        if (lastCandle) {
-          const volatility = currentPrice * 0.0001
-          const change = (Math.random() - 0.5) * volatility * 2
-          const newClose = Number((lastCandle.close + change).toFixed(5))
-          const newHigh = Math.max(lastCandle.high, newClose)
-          const newLow = Math.min(lastCandle.low, newClose)
-
-          candlestickSeriesRef.current.update({
-            time: now,
-            open: lastCandle.close,
-            high: newHigh,
-            low: newLow,
-            close: newClose,
-          })
-
-          setCurrentPrice(newClose)
+      try {
+        if (candlestickSeriesRef.current && chartRef.current) {
+          const now = Math.floor(Date.now() / 1000) as Time
+          const lastCandle = candlestickSeriesRef.current.data().slice(-1)[0]
           
-          // Actualizar cambio de precio
-          if (priceChange) {
-            const firstPrice = currentPrice - priceChange.value
-            const newChange = newClose - firstPrice
-            const newPercent = (newChange / firstPrice) * 100
-            setPriceChange({ value: newChange, percent: newPercent })
+          if (lastCandle) {
+            const volatility = currentPrice * 0.0001
+            const change = (Math.random() - 0.5) * volatility * 2
+            const newClose = Number((lastCandle.close + change).toFixed(5))
+            const newHigh = Math.max(lastCandle.high, newClose)
+            const newLow = Math.min(lastCandle.low, newClose)
+
+            candlestickSeriesRef.current.update({
+              time: now,
+              open: lastCandle.close,
+              high: newHigh,
+              low: newLow,
+              close: newClose,
+            })
+
+            setCurrentPrice(newClose)
+            
+            // Actualizar cambio de precio
+            if (priceChange) {
+              const firstPrice = currentPrice - priceChange.value
+              const newChange = newClose - firstPrice
+              const newPercent = (newChange / firstPrice) * 100
+              setPriceChange({ value: newChange, percent: newPercent })
+            }
           }
         }
+      } catch (e) {
+        // Ignorar errores si el gráfico fue eliminado
+        console.warn('Error updating chart:', e)
+        clearInterval(interval)
       }
     }, 2000) // Actualizar cada 2 segundos
 

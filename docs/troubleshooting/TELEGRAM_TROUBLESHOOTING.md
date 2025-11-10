@@ -198,3 +198,4 @@ Si sigues teniendo problemas:
 3. Verifica la configuración de variables de entorno
 4. Asegúrate de que el bot esté funcionando correctamente en Telegram
 
+

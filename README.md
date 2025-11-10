@@ -146,12 +146,31 @@ ProyectoP2P/
 
 ## Documentación complementaria
 
-- `docs/QUICKSTART.md`: guía paso a paso para levantar todo sin datos mock.
-- `docs/ROADMAP_INTEGRACION_API.md`: lista completa de endpoints y componentes asociados.
-- `docs/FRONTEND_IMPROVEMENTS.md`: plan de UX/UI y conversiones para la landing.
-- `docs/NGROK_TROUBLESHOOTING.md` + scripts en `scripts/*.ps1`: diagnósticos y automatizaciones para túneles seguros.
-- `docs/DEPLOYMENT_CHECKLIST.md`, `render*.yaml`, `railway.json`: opciones de despliegue en la nube.
-- `docs/PROYECTO_COMPLETO.md` y `README_ROBUSTEZ.md`: contexto funcional y mejoras implementadas.
+La documentación está organizada en carpetas temáticas dentro de `docs/`:
+
+### 📚 Documentación Organizada
+
+- **`docs/README.md`**: Índice completo de toda la documentación
+- **`docs/QUICKSTART.md`**: Guía paso a paso para comenzar
+- **`docs/ml/`**: Documentación de Machine Learning y modelos
+- **`docs/intel/`**: Documentación de Intel GPU y Extensiones
+- **`docs/installation/`**: Guías de instalación y configuración
+- **`docs/deployment/`**: Documentación de despliegue
+- **`docs/troubleshooting/`**: Solución de problemas
+- **`docs/api/`**: Documentación de API
+- **`docs/features/`**: Características avanzadas
+- **`docs/guides/`**: Guías detalladas
+
+### 📖 Documentos Principales
+
+- **`docs/QUICKSTART.md`**: Guía rápida para comenzar
+- **`docs/PROYECTO_COMPLETO.md`**: Visión general del proyecto
+- **`docs/ESTADO_REAL_SISTEMA.md`**: Estado actual del sistema
+- **`docs/PENDING_FLOWS.md`**: Flujos pendientes de implementación
+- **`docs/api/ROADMAP_INTEGRACION_API.md`**: Lista completa de endpoints
+- **`docs/guides/FRONTEND_IMPROVEMENTS.md`**: Plan de UX/UI
+- **`docs/troubleshooting/NGROK_TROUBLESHOOTING.md`**: Diagnósticos de NGROK
+- **`docs/deployment/DEPLOYMENT_CHECKLIST.md`**: Checklist de despliegue
 
 ## Roadmap y flujos pendientes
 

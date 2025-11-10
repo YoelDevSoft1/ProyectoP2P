@@ -1,0 +1,42 @@
+version: '3.8'
+
+# Configuración opcional para monitorear GPU Intel Arc usando Intel XPU Manager
+# NOTA: Este servicio monitorea la GPU desde el host, no expone la GPU al contenedor
+# Para usar la GPU dentro del contenedor, necesitas configurar WSL2 y device passthrough
+
+services:
+  # Intel XPU Manager - Monitoreo de GPU Intel Arc
+  xpu-manager:
+    image: intel/xpumanager:latest
+    container_name: p2p_xpu_manager
+    privileged: true  # Necesario para acceder a dispositivos GPU
+    devices:
+      # Intentar pasar dispositivos Intel GPU (puede no funcionar en Docker Desktop Windows)
+      - /dev/dri:/dev/dri  # Direct Rendering Infrastructure
+    volumes:
+      # Montar sistema de archivos para acceso a GPU
+      - /sys:/sys:ro
+      - /dev:/dev:ro
+    environment:
+      - XPU_MANAGER_CONFIG_PATH=/etc/xpumanager
+      - XPU_MANAGER_LOG_LEVEL=INFO
+    ports:
+      - "12788:12788"  # Puerto por defecto de XPU Manager API
+    networks:
+      - p2p_network
+    restart: unless-stopped
+    # Healthcheck - verificar que el servicio está respondiendo
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:12788/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    # Nota: Este servicio puede fallar en Docker Desktop Windows
+    # Si falla, simplemente no se ejecutará y no afectará otros servicios
+
+networks:
+  p2p_network:
+    external: true
+    name: p2p_network
+

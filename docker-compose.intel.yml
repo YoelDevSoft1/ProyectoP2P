@@ -1,0 +1,193 @@
+version: '3.8'
+
+# Docker Compose usando imágenes oficiales de Intel para PyTorch optimizado
+# Esto proporciona mejor rendimiento en hardware Intel (CPU y GPU)
+
+services:
+  # Backend FastAPI con Intel Extension for PyTorch
+  backend:
+    build:
+      context: ./backend
+      dockerfile: ../docker/Dockerfile.backend.intel
+    container_name: p2p_backend_intel
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://p2p_user:p2p_password_change_me@postgres:5432/p2p_db
+      - REDIS_URL=redis://redis:6379/0
+      - RABBITMQ_URL=amqp://p2p_user:p2p_password_change_me@rabbitmq:5672/
+      # Variables de entorno para Intel Extension
+      - INTEL_EXTENSION_FOR_PYTORCH_SKIP_BINDING=0
+      - USE_XPU=1
+      # Opcional: Si tienes GPU Intel Arc disponible
+      - ZE_FLAT_DEVICE_HIERARCHY=COMPOSITE
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - backend_logs:/app/logs
+    # Intentar pasar dispositivos GPU (puede no funcionar en Docker Desktop Windows)
+    devices:
+      - /dev/dri:/dev/dri  # Direct Rendering Infrastructure para GPU
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - p2p_network
+    restart: unless-stopped
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Celery Worker - Alta Prioridad (con Intel optimizations)
+  celery_worker_high:
+    build:
+      context: ./backend
+      dockerfile: ../docker/Dockerfile.backend.intel
+    container_name: p2p_celery_worker_high_intel
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://p2p_user:p2p_password_change_me@postgres:5432/p2p_db
+      - REDIS_URL=redis://redis:6379/0
+      - RABBITMQ_URL=amqp://p2p_user:p2p_password_change_me@rabbitmq:5672/
+      - INTEL_EXTENSION_FOR_PYTORCH_SKIP_BINDING=0
+      - USE_XPU=1
+    volumes:
+      - ./backend:/app
+      - celery_logs_high:/app/logs
+    devices:
+      - /dev/dri:/dev/dri
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    networks:
+      - p2p_network
+    restart: unless-stopped
+    command: celery -A celery_app.worker worker --loglevel=info --concurrency=2 --queues=high_priority --prefetch-multiplier=1 --hostname=worker_high@%h
+
+  # Celery Worker - Prioridad Default
+  celery_worker_default:
+    build:
+      context: ./backend
+      dockerfile: ../docker/Dockerfile.backend.intel
+    container_name: p2p_celery_worker_default_intel
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://p2p_user:p2p_password_change_me@postgres:5432/p2p_db
+      - REDIS_URL=redis://redis:6379/0
+      - RABBITMQ_URL=amqp://p2p_user:p2p_password_change_me@rabbitmq:5672/
+      - INTEL_EXTENSION_FOR_PYTORCH_SKIP_BINDING=0
+      - USE_XPU=1
+    volumes:
+      - ./backend:/app
+      - celery_logs_default:/app/logs
+    devices:
+      - /dev/dri:/dev/dri
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    networks:
+      - p2p_network
+    restart: unless-stopped
+    command: celery -A celery_app.worker worker --loglevel=info --concurrency=3 --queues=default --prefetch-multiplier=2 --hostname=worker_default@%h
+
+  # Celery Worker - Baja Prioridad (tareas pesadas como entrenamiento ML)
+  celery_worker_low:
+    build:
+      context: ./backend
+      dockerfile: ../docker/Dockerfile.backend.intel
+    container_name: p2p_celery_worker_low_intel
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://p2p_user:p2p_password_change_me@postgres:5432/p2p_db
+      - REDIS_URL=redis://redis:6379/0
+      - RABBITMQ_URL=amqp://p2p_user:p2p_password_change_me@rabbitmq:5672/
+      - INTEL_EXTENSION_FOR_PYTORCH_SKIP_BINDING=0
+      - USE_XPU=1
+    volumes:
+      - ./backend:/app
+      - celery_logs_low:/app/logs
+    devices:
+      - /dev/dri:/dev/dri
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    networks:
+      - p2p_network
+    restart: unless-stopped
+    command: celery -A celery_app.worker worker --loglevel=info --concurrency=1 --queues=low_priority --prefetch-multiplier=1 --hostname=worker_low@%h
+
+  # Celery Beat
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: ../docker/Dockerfile.backend.intel
+    container_name: p2p_celery_beat_intel
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://p2p_user:p2p_password_change_me@postgres:5432/p2p_db
+      - REDIS_URL=redis://redis:6379/0
+      - RABBITMQ_URL=amqp://p2p_user:p2p_password_change_me@rabbitmq:5672/
+    volumes:
+      - ./backend:/app
+      - celerybeat_data:/app/celerybeat-schedule
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    networks:
+      - p2p_network
+    restart: unless-stopped
+    command: celery -A celery_app.worker beat --loglevel=info
+
+# Reutilizar servicios existentes (postgres, redis, rabbitmq, etc.)
+# Estos servicios se heredan del docker-compose.yml principal
+# O puedes copiarlos aquí si quieres usar este compose file de forma independiente
+
+networks:
+  p2p_network:
+    external: true
+    name: p2p_network
+
+volumes:
+  backend_logs:
+  celery_logs_high:
+  celery_logs_default:
+  celery_logs_low:
+  celerybeat_data:
+

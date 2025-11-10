@@ -323,7 +323,11 @@ export function ForexExpertTrading() {
       {viewMode === 'trading' ? (
         <TradingViewLayout selectedPair={selectedPair} onPairSelect={setSelectedPair} />
       ) : (
-        <ExpertAnalysisView selectedPair={selectedPair} onPairSelect={setSelectedPair} />
+        <ExpertAnalysisView 
+          selectedPair={selectedPair} 
+          onPairSelect={setSelectedPair}
+          onRefetch={refetchAnalysis}
+        />
       )}
     </div>
   )
@@ -376,9 +380,11 @@ function TradingViewLayout({
 function ExpertAnalysisView({
   selectedPair,
   onPairSelect,
+  onRefetch,
 }: {
   selectedPair: string
   onPairSelect: (pair: string) => void
+  onRefetch?: () => void
 }) {
   const [analysis, setAnalysis] = useState<ForexAnalysis | null>(null)
   const [virtualOrders, setVirtualOrders] = useState<VirtualOrder[]>([])
@@ -388,12 +394,19 @@ function ExpertAnalysisView({
   const [message, setMessage] = useState<{ type: 'info' | 'error' | 'success'; text: string } | null>(null)
 
   // Cargar análisis del par seleccionado
-  const { data: analysisData, refetch: refetchAnalysis, isLoading: loadingAnalysis } = useQuery({
+  const { data: analysisData, refetch: refetchAnalysis, isLoading: loadingAnalysis, error: analysisError } = useQuery({
     queryKey: ['forex-analysis', selectedPair],
     queryFn: () => api.analyzeForexPair(selectedPair, 'daily'),
     enabled: !!selectedPair,
     refetchInterval: 60000,
     retry: 2,
+    onError: (error) => {
+      console.error('Error loading analysis:', error)
+      setMessage({ 
+        type: 'error', 
+        text: 'Error al cargar el análisis. Verifica la conexión con el backend.' 
+      })
+    },
   })
 
   // Cargar estadísticas de sesión
@@ -555,7 +568,7 @@ function ExpertAnalysisView({
             {FOREX_PAIRS.map((pair) => (
               <button
                 key={pair.id}
-                onClick={() => setSelectedPair(pair.id)}
+                onClick={() => onPairSelect(pair.id)}
                 className={`w-full p-3 rounded-lg border transition text-left ${
                   selectedPair === pair.id
                     ? 'border-primary-500 bg-primary-500/10'
@@ -571,8 +584,25 @@ function ExpertAnalysisView({
         {/* Análisis técnico */}
         <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 space-y-4">
           {loadingAnalysis ? (
-            <div className="flex items-center justify-center py-8">
-              <RefreshCw className="h-6 w-6 text-primary-400 animate-spin" />
+            <div className="flex flex-col items-center justify-center py-8">
+              <RefreshCw className="h-6 w-6 text-primary-400 animate-spin mb-2" />
+              <span className="text-sm text-gray-400">Cargando análisis...</span>
+            </div>
+          ) : (!analysisData || analysisError) ? (
+            <div className="flex flex-col items-center justify-center py-8">
+              <AlertCircle className="h-8 w-8 text-red-400 mb-2" />
+              <p className="text-sm text-gray-400 mb-2">
+                {analysisError ? 'Error al cargar el análisis' : 'No se pudo cargar el análisis'}
+              </p>
+              <button
+                onClick={() => {
+                  refetchAnalysis()
+                  setMessage(null)
+                }}
+                className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg text-sm"
+              >
+                Reintentar
+              </button>
             </div>
           ) : analysis && analysis.ANÁLISIS_FOREX ? (
             <>

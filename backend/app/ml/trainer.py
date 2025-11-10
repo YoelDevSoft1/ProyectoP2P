@@ -15,6 +15,7 @@ import joblib
 import structlog
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Optional
 
 from app.core.config import settings
 from app.models.price_history import PriceHistory

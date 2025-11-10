@@ -1115,3 +1115,4 @@ metrics.p2p_trades_duration.observe(duration)
 **Última actualización:** 2024
 **Versión:** 1.0.0
 
+

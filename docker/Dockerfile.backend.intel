@@ -1,0 +1,68 @@
+# Dockerfile basado en la imagen oficial de Intel Extension for PyTorch
+# Esta imagen incluye PyTorch optimizado con Intel Extension preinstalado
+# Soporte para CPU y GPU Intel (incluyendo Intel Arc A750)
+FROM intel/intel-extension-for-pytorch:latest
+
+# Instalar dependencias del sistema adicionales
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    make \
+    libpq-dev \
+    curl \
+    # Dependencias comunes que Playwright requiere
+    libnss3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libdrm2 \
+    libasound2 \
+    libpangocairo-1.0-0 \
+    libpango-1.0-0 \
+    libxcursor1 \
+    libxi6 \
+    libxss1 \
+    fonts-liberation \
+    fonts-unifont \
+    # Dependencias para acceso a GPU (si está disponible)
+    libdrm2 \
+    libdrm-intel1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Establecer directorio de trabajo
+WORKDIR /app
+
+# Copiar requirements (PyTorch e Intel Extension ya están instalados)
+COPY requirements.txt .
+
+# Instalar dependencias de Python (excluyendo PyTorch que ya está en la imagen base)
+# PyTorch e Intel Extension ya vienen preinstalados en la imagen base
+RUN pip install --no-cache-dir --upgrade pip && \
+    grep -v -E "^(torch|torchvision|torchaudio|intel-extension-for-pytorch)" requirements.txt > requirements_no_torch.txt && \
+    pip install --no-cache-dir -r requirements_no_torch.txt && \
+    rm -f requirements_no_torch.txt
+
+# Instalar navegadores de Playwright
+RUN playwright install chromium
+
+# Copiar código de la aplicación
+COPY . .
+
+# Crear directorio de logs
+RUN mkdir -p /app/logs
+
+# Configurar variables de entorno para Intel Extension
+ENV INTEL_EXTENSION_FOR_PYTORCH_SKIP_BINDING=0
+ENV USE_XPU=1
+
+# Exponer puerto
+EXPOSE 8000
+
+# Comando por defecto
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+

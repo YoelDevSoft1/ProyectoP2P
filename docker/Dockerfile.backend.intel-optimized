@@ -1,0 +1,60 @@
+# Dockerfile basado en la imagen oficial de Intel Optimized PyTorch
+# Esta imagen contiene PyTorch optimizado para hardware Intel
+# Ideal para CPUs Intel con optimizaciones AVX-512 y VNNI
+FROM intel/intel-optimized-pytorch:latest
+
+# Instalar dependencias del sistema adicionales
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    make \
+    libpq-dev \
+    curl \
+    # Dependencias comunes que Playwright requiere
+    libnss3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libdrm2 \
+    libasound2 \
+    libpangocairo-1.0-0 \
+    libpango-1.0-0 \
+    libxcursor1 \
+    libxi6 \
+    libxss1 \
+    fonts-liberation \
+    fonts-unifont \
+    && rm -rf /var/lib/apt/lists/*
+
+# Establecer directorio de trabajo
+WORKDIR /app
+
+# Copiar requirements (PyTorch ya está optimizado en la imagen base)
+COPY requirements.txt .
+
+# Instalar dependencias de Python (excluyendo PyTorch que ya está en la imagen base)
+RUN pip install --no-cache-dir --upgrade pip && \
+    grep -v -E "^(torch|torchvision|torchaudio|intel-extension-for-pytorch)" requirements.txt > requirements_no_torch.txt && \
+    pip install --no-cache-dir -r requirements_no_torch.txt && \
+    rm -f requirements_no_torch.txt
+
+# Instalar navegadores de Playwright
+RUN playwright install chromium
+
+# Copiar código de la aplicación
+COPY . .
+
+# Crear directorio de logs
+RUN mkdir -p /app/logs
+
+# Exponer puerto
+EXPOSE 8000
+
+# Comando por defecto
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+

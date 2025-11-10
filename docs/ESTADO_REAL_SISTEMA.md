@@ -454,3 +454,4 @@ async def _execute_chunk(self, asset, fiat, trade_type, amount_usd, expected_pri
 **Última actualización:** 2024
 **Versión:** 1.0.0
 
+
