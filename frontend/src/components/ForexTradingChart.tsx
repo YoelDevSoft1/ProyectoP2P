@@ -238,11 +238,6 @@ export function ForexTradingChart({ pair, timeframe = '1h', height = 500 }: Fore
         priceFormat: {
           type: 'volume',
         },
-        priceScaleId: '',
-        scaleMargins: {
-          top: 0.1,
-          bottom: 0.1,
-        },
       })
 
       volumeChartRef.current = volumeChart
