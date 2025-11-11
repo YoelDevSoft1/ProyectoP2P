@@ -369,7 +369,8 @@ export function ForexTradingChart({ pair, timeframe = '1h', height = 500 }: Fore
           const now = Math.floor(Date.now() / 1000) as Time
           const lastCandle = candlestickSeriesRef.current.data().slice(-1)[0]
           
-          if (lastCandle) {
+          // Verificar que lastCandle es un CandlestickData (no WhitespaceData)
+          if (lastCandle && 'close' in lastCandle) {
             const volatility = currentPrice * 0.0001
             const change = (Math.random() - 0.5) * volatility * 2
             const newClose = Number((lastCandle.close + change).toFixed(5))
