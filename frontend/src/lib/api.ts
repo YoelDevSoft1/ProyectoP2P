@@ -814,6 +814,43 @@ const api = {
       return null
     }
   },
+
+  // Configuration API
+  getConfiguration: async () => {
+    try {
+      const { data } = await requestWithRetry(() =>
+        axiosInstance.get('/config')
+      )
+      return data
+    } catch (error: any) {
+      console.error('Error getting configuration:', error)
+      throw error
+    }
+  },
+
+  updateConfiguration: async (config: Partial<import('@/types/config').ConfigUpdateRequest>) => {
+    try {
+      const { data } = await requestWithRetry(() =>
+        axiosInstance.put('/config', config)
+      )
+      return data
+    } catch (error: any) {
+      console.error('Error updating configuration:', error)
+      throw error
+    }
+  },
+
+  getConfigSections: async () => {
+    try {
+      const { data } = await requestWithRetry(() =>
+        axiosInstance.get('/config/sections')
+      )
+      return data
+    } catch (error: any) {
+      console.error('Error getting config sections:', error)
+      throw error
+    }
+  },
 }
 
 export default api

@@ -70,7 +70,7 @@ export default function MonitoringPage() {
             className="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-colors"
           >
             <Home className="h-5 w-5 mr-3" />
-            Landing Page
+            Página Principal
           </Link>
 
           <Link
@@ -79,7 +79,7 @@ export default function MonitoringPage() {
             className="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-colors"
           >
             <BarChart3 className="h-5 w-5 mr-3" />
-            Dashboard
+            Panel de Control
           </Link>
 
           <Link
@@ -91,21 +91,23 @@ export default function MonitoringPage() {
             Monitoreo
           </Link>
 
-          <button
-            className="flex items-center w-full px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-colors"
-            disabled
+          <Link
+            href="/alerts"
+            onClick={() => setSidebarOpen(false)}
+            className="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-colors"
           >
             <Bell className="h-5 w-5 mr-3" />
             Alertas
-          </button>
+          </Link>
 
-          <button
-            className="flex items-center w-full px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-colors"
-            disabled
+          <Link
+            href="/config"
+            onClick={() => setSidebarOpen(false)}
+            className="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-colors"
           >
             <Settings className="h-5 w-5 mr-3" />
             Configuración
-          </button>
+          </Link>
         </nav>
       </div>
 

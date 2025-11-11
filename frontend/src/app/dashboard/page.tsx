@@ -37,16 +37,16 @@ export default function Dashboard() {
   })
 
   const tabs = [
-    { id: 'overview', label: 'Overview', icon: BarChart3 },
+    { id: 'overview', label: 'Resumen', icon: BarChart3 },
     { id: 'metrics', label: 'Métricas', icon: Target },
     { id: 'performance', label: 'Rendimiento', icon: LineChart },
     { id: 'inventory', label: 'Inventario', icon: Wallet },
-    { id: 'trading', label: 'Trading', icon: Zap },
-    { id: 'ml', label: 'ML Insights', icon: Brain },
+    { id: 'trading', label: 'Operaciones', icon: Zap },
+    { id: 'ml', label: 'Análisis ML', icon: Brain },
     { id: 'market', label: 'Mercado', icon: Activity },
     { id: 'reports', label: 'Reportes', icon: FileText },
     { id: 'arbitrage', label: 'Arbitraje', icon: Zap },
-    { id: 'pricing', label: 'Pricing', icon: DollarSign },
+    { id: 'pricing', label: 'Precios', icon: DollarSign },
     { id: 'liquidity', label: 'Liquidez', icon: Activity },
     { id: 'risk', label: 'Riesgo', icon: Shield },
   ]
@@ -110,7 +110,7 @@ export default function Dashboard() {
             className="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-colors"
           >
             <Home className="h-5 w-5 mr-3" />
-            Landing Page
+            Página Principal
           </Link>
 
           <Link
@@ -119,7 +119,7 @@ export default function Dashboard() {
             className="flex items-center px-4 py-3 bg-primary-600 text-white rounded-lg"
           >
             <BarChart3 className="h-5 w-5 mr-3" />
-            Dashboard
+            Panel de Control
           </Link>
 
           <Link
@@ -145,13 +145,14 @@ export default function Dashboard() {
             )}
           </Link>
 
-          <button
-            className="flex items-center w-full px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-colors"
-            disabled
+          <Link
+            href="/config"
+            onClick={() => setSidebarOpen(false)}
+            className="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-colors"
           >
             <Settings className="h-5 w-5 mr-3" />
             Configuración
-          </button>
+          </Link>
         </nav>
       </div>
 
@@ -170,7 +171,7 @@ export default function Dashboard() {
                 <Menu className="h-5 w-5 sm:h-6 sm:w-6" />
               </button>
               <div className="min-w-0 flex-1">
-                <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-white truncate">Dashboard</h1>
+                <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-white truncate">Panel de Control</h1>
                 <p className="text-gray-400 text-xs sm:text-sm mt-0.5 hidden sm:block">
                   Monitoreo y análisis de operaciones P2P
                 </p>

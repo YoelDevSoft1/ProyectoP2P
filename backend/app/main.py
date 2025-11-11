@@ -16,6 +16,7 @@ from app.core.metrics import metrics, initialize_metrics
 from app.api.endpoints import (
     advanced_arbitrage,
     analytics,
+    config,
     health,
     market_making,
     order_execution,
@@ -232,6 +233,12 @@ app.include_router(
     forex.router,
     prefix=f"{settings.API_V1_STR}",
     tags=["forex"]
+)
+
+app.include_router(
+    config.router,
+    prefix=f"{settings.API_V1_STR}",
+    tags=["config"]
 )
 
 
