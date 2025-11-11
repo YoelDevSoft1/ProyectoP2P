@@ -18,7 +18,7 @@ import {
   ReferenceLine
 } from 'recharts'
 import api from '@/lib/api'
-import { parsePrometheusMetrics, getMetricValue, getMetricValues, sumMetricValues } from '../lib/prometheus'
+import { parsePrometheusMetrics, getMetricValue, getMetricValues, sumMetricValues, PrometheusMetric } from '../lib/prometheus'
 import { Loader2, TrendingUp, Activity, Database, MessageSquare } from 'lucide-react'
 import { formatColombiaTimeOnly } from '@/lib/dateUtils'
 
@@ -90,13 +90,13 @@ export function MetricsDashboard() {
   
   // Para active_arbitrage_opportunities, es un Gauge, así que sumamos todos los valores actuales
   // (puede haber múltiples estrategias)
-  const activeArbitrageSeries = metrics.get('active_arbitrage_opportunities')
+  const activeArbitrageSeries: PrometheusMetric[] | undefined = metrics.get('active_arbitrage_opportunities')
   let activeArbitrage: number = 0
   if (activeArbitrageSeries && activeArbitrageSeries.length > 0) {
     // Para Gauges, sumar todos los valores actuales (cada estrategia tiene su propio gauge)
     const validValues = activeArbitrageSeries
-      .filter(m => isFinite(m.value) && !isNaN(m.value))
-      .map(m => m.value)
+      .filter((m: PrometheusMetric) => isFinite(m.value) && !isNaN(m.value))
+      .map((m: PrometheusMetric) => m.value)
     if (validValues.length > 0) {
       activeArbitrage = validValues.reduce((sum, val) => sum + val, 0)
     }
