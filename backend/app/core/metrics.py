@@ -5,6 +5,9 @@ from prometheus_client import Counter, Histogram, Gauge, Info
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from typing import Optional
 import time
+import logging
+
+logger = logging.getLogger(__name__)
 
 # ===== MÉTRICAS DE NEGOCIO =====
 
@@ -399,4 +402,30 @@ class MetricsMiddleware:
 
 # Instancia global
 metrics = MetricsMiddleware()
+
+
+def initialize_metrics():
+    """
+    Inicializar métricas para que estén disponibles en el endpoint /metrics.
+    
+    Nota: Prometheus no exporta Counters con valor 0, por lo que estas métricas
+    solo aparecerán cuando se usen por primera vez. El frontend maneja correctamente
+    el caso cuando las métricas no existen (mostrando 0).
+    
+    Para Gauges, sí podemos inicializarlos con valor 0.
+    """
+    try:
+        # Inicializar active_arbitrage_opportunities (Gauge) con valor 0
+        # Los Gauges sí se exportan con valor 0
+        active_arbitrage_opportunities.labels(strategy="simple").set(0)
+        active_arbitrage_opportunities.labels(strategy="triangular").set(0)
+        active_arbitrage_opportunities.labels(strategy="statistical").set(0)
+        
+        # Nota: Los Counters (celery_tasks_total, trades_executed_total) no se exportan
+        # con valor 0 en Prometheus. Se inicializarán automáticamente cuando se usen.
+        # El frontend maneja correctamente el caso cuando no existen (mostrando 0).
+        
+        logger.info("Metrics initialized (Gauges set to 0, Counters will appear when used)")
+    except Exception as e:
+        logger.warning("Failed to initialize metrics", error=str(e))
 

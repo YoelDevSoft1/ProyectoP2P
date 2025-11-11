@@ -185,6 +185,7 @@ export function getMetricValues(
 /**
  * Suma todos los valores de una métrica
  * Útil para contadores que pueden tener múltiples series con diferentes labels
+ * Para métricas con labels, suma solo el valor más reciente de cada serie única
  * Ignora valores NaN e Infinity
  */
 export function sumMetricValues(
@@ -196,14 +197,47 @@ export function sumMetricValues(
     return 0
   }
 
-  return metricSeries.reduce((sum, metric) => {
-    const value = metric.value
-    // Solo sumar valores válidos (finitos y no NaN)
-    if (isFinite(value) && !isNaN(value)) {
-      return sum + value
+  // Si la métrica tiene labels, agrupar por combinación única de labels
+  // y tomar el valor más reciente de cada grupo
+  const hasLabels = metricSeries.some(m => m.labels && Object.keys(m.labels).length > 0)
+  
+  if (hasLabels) {
+    // Agrupar por combinación única de labels
+    const grouped = new Map<string, PrometheusMetric>()
+    
+    for (const metric of metricSeries) {
+      const value = metric.value
+      // Solo procesar valores válidos
+      if (!isFinite(value) || isNaN(value)) {
+        continue
+      }
+      
+      // Crear clave única basada en labels
+      const labelKey = metric.labels 
+        ? JSON.stringify(Object.entries(metric.labels).sort())
+        : 'no_labels'
+      
+      // Si no existe o este es más reciente, actualizar
+      const existing = grouped.get(labelKey)
+      if (!existing || (metric.timestamp && existing.timestamp && metric.timestamp > existing.timestamp)) {
+        grouped.set(labelKey, metric)
+      }
     }
-    return sum
-  }, 0)
+    
+    // Sumar los valores más recientes de cada grupo
+    return Array.from(grouped.values()).reduce((sum, metric) => {
+      return sum + metric.value
+    }, 0)
+  } else {
+    // Sin labels, sumar todos los valores válidos
+    return metricSeries.reduce((sum, metric) => {
+      const value = metric.value
+      if (isFinite(value) && !isNaN(value)) {
+        return sum + value
+      }
+      return sum
+    }, 0)
+  }
 }
 
 /**

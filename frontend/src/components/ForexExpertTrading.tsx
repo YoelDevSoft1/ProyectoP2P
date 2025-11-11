@@ -400,14 +400,18 @@ function ExpertAnalysisView({
     enabled: !!selectedPair,
     refetchInterval: 60000,
     retry: 2,
-    onError: (error) => {
-      console.error('Error loading analysis:', error)
+  })
+
+  // Manejar errores del análisis
+  useEffect(() => {
+    if (analysisError) {
+      console.error('Error loading analysis:', analysisError)
       setMessage({ 
         type: 'error', 
         text: 'Error al cargar el análisis. Verifica la conexión con el backend.' 
       })
-    },
-  })
+    }
+  }, [analysisError])
 
   // Cargar estadísticas de sesión
   const { data: statsData } = useQuery({

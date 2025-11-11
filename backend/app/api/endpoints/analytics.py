@@ -216,7 +216,12 @@ async def get_alerts(
                 "title": a.title,
                 "message": a.message,
                 "is_read": a.is_read,
-                "created_at": a.created_at.isoformat()
+                "created_at": a.created_at.isoformat(),
+                "asset": a.asset,
+                "fiat": a.fiat,
+                "price": a.price,
+                "percentage": a.percentage,
+                "read_at": a.read_at.isoformat() if a.read_at else None
             }
             for a in alerts
         ]

@@ -12,7 +12,7 @@ from app.core.config import settings
 from app.core.database import init_db, close_db_connections
 from app.core.database_async import init_async_db, close_async_db_connections
 from app.core.redis_pool import redis_pool
-from app.core.metrics import metrics
+from app.core.metrics import metrics, initialize_metrics
 from app.api.endpoints import (
     advanced_arbitrage,
     analytics,
@@ -58,6 +58,10 @@ async def lifespan(app: FastAPI):
     # Inicializar Redis pool
     await redis_pool.initialize()
     logger.info("Redis pool initialized")
+    
+    # Inicializar métricas con valores por defecto
+    initialize_metrics()
+    logger.info("Metrics initialized")
     
     yield
 

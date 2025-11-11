@@ -1,7 +1,22 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { 
+  LineChart, 
+  Line, 
+  AreaChart, 
+  Area, 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  Legend, 
+  ResponsiveContainer,
+  Cell,
+  ReferenceLine
+} from 'recharts'
 import api from '@/lib/api'
 import { parsePrometheusMetrics, getMetricValue, getMetricValues, sumMetricValues } from '../lib/prometheus'
 import { Loader2, TrendingUp, Activity, Database, MessageSquare } from 'lucide-react'
@@ -44,39 +59,14 @@ export function MetricsDashboard() {
     return () => clearInterval(interval)
   }, [])
 
-  // Debug: Log available metrics y valores (solo en desarrollo)
+  // Debug: Log available metrics y valores (solo en desarrollo, opcional)
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development' && metrics.size > 0) {
-      const metricNames = Array.from(metrics.keys())
-      console.log('📊 Available metrics:', metricNames)
-      
-      // Log detallado de cada métrica que buscamos
-      const trackedMetrics = [
-        'http_requests_total',
-        'db_queries_total', 
-        'redis_operations_total',
-        'celery_tasks_total',
-        'trades_executed_total',
-        'active_arbitrage_opportunities'
-      ]
-      
-      trackedMetrics.forEach(metricName => {
-        const series = metrics.get(metricName)
-        if (series) {
-          const sum = sumMetricValues(metrics, metricName)
-          console.log(`  ${metricName}:`, {
-            series: series.length,
-            sum,
-            sample: series.slice(0, 2).map(s => ({
-              value: s.value,
-              labels: s.labels
-            }))
-          })
-        } else {
-          console.warn(`  ⚠️ ${metricName}: NOT FOUND - La métrica no existe en el backend`)
-        }
-      })
-    }
+    // Comentado para evitar warnings innecesarios
+    // Las métricas pueden no existir al inicio y eso es normal
+    // if (process.env.NODE_ENV === 'development' && metrics.size > 0) {
+    //   const metricNames = Array.from(metrics.keys())
+    //   console.log('📊 Available metrics:', metricNames)
+    // }
   }, [metrics])
 
   // Preparar datos para gráficos
@@ -92,12 +82,25 @@ export function MetricsDashboard() {
   const totalHttpRequests = sumMetricValues(metrics, 'http_requests_total')
   const totalDbQueries = sumMetricValues(metrics, 'db_queries_total')
   const totalRedisOps = sumMetricValues(metrics, 'redis_operations_total')
-  const totalCeleryTasks = sumMetricValues(metrics, 'celery_tasks_total')
-  const totalTrades = sumMetricValues(metrics, 'trades_executed_total')
+  const totalCeleryTasks = sumMetricValues(metrics, 'celery_tasks_total') || 0
+  const totalTrades = sumMetricValues(metrics, 'trades_executed_total') || 0
 
   // Obtener valores actuales
   const httpDurationP95 = getMetricValue(metrics, 'http_request_duration_seconds')
-  const activeArbitrage = getMetricValue(metrics, 'active_arbitrage_opportunities')
+  
+  // Para active_arbitrage_opportunities, es un Gauge, así que sumamos todos los valores actuales
+  // (puede haber múltiples estrategias)
+  const activeArbitrageSeries = metrics.get('active_arbitrage_opportunities')
+  let activeArbitrage: number = 0
+  if (activeArbitrageSeries && activeArbitrageSeries.length > 0) {
+    // Para Gauges, sumar todos los valores actuales (cada estrategia tiene su propio gauge)
+    const validValues = activeArbitrageSeries
+      .filter(m => isFinite(m.value) && !isNaN(m.value))
+      .map(m => m.value)
+    if (validValues.length > 0) {
+      activeArbitrage = validValues.reduce((sum, val) => sum + val, 0)
+    }
+  }
 
   if (loading && metrics.size === 0) {
     return (
@@ -168,7 +171,7 @@ export function MetricsDashboard() {
     },
     {
       name: 'Active Arbitrage',
-      value: activeArbitrage?.toFixed(0) || '0',
+      value: activeArbitrage.toFixed(0),
       icon: TrendingUp,
       color: 'text-yellow-400',
       bgColor: 'bg-yellow-900/30',
@@ -258,154 +261,298 @@ export function MetricsDashboard() {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* HTTP Requests */}
-        <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700 p-4 sm:p-6">
-          <h3 className="text-base sm:text-lg font-semibold mb-4 text-white">HTTP Requests</h3>
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-xl border border-gray-700/50 p-4 sm:p-6 hover:border-blue-500/50 transition-all duration-300">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base sm:text-lg font-bold text-white">HTTP Requests</h3>
+            <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse"></div>
+          </div>
           <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={httpRequestsData.slice(0, 20)}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="time" stroke="#9CA3AF" />
-              <YAxis stroke="#9CA3AF" />
+            <AreaChart data={httpRequestsData.slice(0, 20)} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorHttpRequests" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#60A5FA" stopOpacity={0.8}/>
+                  <stop offset="95%" stopColor="#60A5FA" stopOpacity={0.1}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+              <XAxis 
+                dataKey="time" 
+                stroke="#9CA3AF" 
+                fontSize={12}
+                tick={{ fill: '#9CA3AF' }}
+                axisLine={{ stroke: '#4B5563' }}
+              />
+              <YAxis 
+                stroke="#9CA3AF" 
+                fontSize={12}
+                tick={{ fill: '#9CA3AF' }}
+                axisLine={{ stroke: '#4B5563' }}
+              />
               <Tooltip 
                 contentStyle={{ 
                   backgroundColor: '#1F2937', 
-                  border: '1px solid #374151',
+                  border: '1px solid #60A5FA',
                   borderRadius: '8px',
-                  color: '#F3F4F6'
-                }} 
+                  color: '#F3F4F6',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)'
+                }}
+                labelStyle={{ color: '#60A5FA', fontWeight: 'bold' }}
+                cursor={{ stroke: '#60A5FA', strokeWidth: 2 }}
               />
-              <Legend wrapperStyle={{ color: '#F3F4F6' }} />
               <Area
                 type="monotone"
                 dataKey="value"
                 stroke="#60A5FA"
-                fill="#60A5FA"
-                fillOpacity={0.6}
+                strokeWidth={2}
+                fill="url(#colorHttpRequests)"
+                animationDuration={1000}
+                animationBegin={0}
               />
             </AreaChart>
           </ResponsiveContainer>
         </div>
 
         {/* HTTP Duration */}
-        <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700 p-4 sm:p-6">
-          <h3 className="text-base sm:text-lg font-semibold mb-4 text-white">HTTP Request Duration (p95)</h3>
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-xl border border-gray-700/50 p-4 sm:p-6 hover:border-green-500/50 transition-all duration-300">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base sm:text-lg font-bold text-white">HTTP Request Duration (p95)</h3>
+            <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
+          </div>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={httpDurationData.slice(0, 20)}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="time" stroke="#9CA3AF" />
-              <YAxis stroke="#9CA3AF" />
+            <LineChart data={httpDurationData.slice(0, 20)} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+              <XAxis 
+                dataKey="time" 
+                stroke="#9CA3AF" 
+                fontSize={12}
+                tick={{ fill: '#9CA3AF' }}
+                axisLine={{ stroke: '#4B5563' }}
+              />
+              <YAxis 
+                stroke="#9CA3AF" 
+                fontSize={12}
+                tick={{ fill: '#9CA3AF' }}
+                axisLine={{ stroke: '#4B5563' }}
+              />
               <Tooltip 
                 contentStyle={{ 
                   backgroundColor: '#1F2937', 
-                  border: '1px solid #374151',
+                  border: '1px solid #34D399',
                   borderRadius: '8px',
-                  color: '#F3F4F6'
-                }} 
+                  color: '#F3F4F6',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)'
+                }}
+                labelStyle={{ color: '#34D399', fontWeight: 'bold' }}
+                cursor={{ stroke: '#34D399', strokeWidth: 2 }}
               />
-              <Legend wrapperStyle={{ color: '#F3F4F6' }} />
               <Line
                 type="monotone"
                 dataKey="value"
                 stroke="#34D399"
-                strokeWidth={2}
+                strokeWidth={3}
+                dot={{ fill: '#34D399', r: 4 }}
+                activeDot={{ r: 6, fill: '#10B981' }}
+                animationDuration={1000}
+                animationBegin={0}
               />
             </LineChart>
           </ResponsiveContainer>
         </div>
 
         {/* DB Queries */}
-        <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700 p-4 sm:p-6">
-          <h3 className="text-base sm:text-lg font-semibold mb-4 text-white">Database Queries</h3>
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-xl border border-gray-700/50 p-4 sm:p-6 hover:border-red-500/50 transition-all duration-300">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base sm:text-lg font-bold text-white">Database Queries</h3>
+            <div className="h-2 w-2 bg-red-500 rounded-full animate-pulse"></div>
+          </div>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={dbQueriesData.slice(0, 20)}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="time" stroke="#9CA3AF" />
-              <YAxis stroke="#9CA3AF" />
+            <BarChart data={dbQueriesData.slice(0, 20)} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorDbQueries" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#F87171" stopOpacity={0.9}/>
+                  <stop offset="95%" stopColor="#EF4444" stopOpacity={0.6}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+              <XAxis 
+                dataKey="time" 
+                stroke="#9CA3AF" 
+                fontSize={12}
+                tick={{ fill: '#9CA3AF' }}
+                axisLine={{ stroke: '#4B5563' }}
+              />
+              <YAxis 
+                stroke="#9CA3AF" 
+                fontSize={12}
+                tick={{ fill: '#9CA3AF' }}
+                axisLine={{ stroke: '#4B5563' }}
+              />
               <Tooltip 
                 contentStyle={{ 
                   backgroundColor: '#1F2937', 
-                  border: '1px solid #374151',
+                  border: '1px solid #F87171',
                   borderRadius: '8px',
-                  color: '#F3F4F6'
-                }} 
+                  color: '#F3F4F6',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)'
+                }}
+                labelStyle={{ color: '#F87171', fontWeight: 'bold' }}
+                cursor={{ fill: 'rgba(248, 113, 113, 0.1)' }}
               />
-              <Legend wrapperStyle={{ color: '#F3F4F6' }} />
-              <Bar dataKey="value" fill="#F87171" />
+              <Bar 
+                dataKey="value" 
+                fill="url(#colorDbQueries)"
+                radius={[4, 4, 0, 0]}
+                animationDuration={1000}
+                animationBegin={0}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
         {/* Redis Operations */}
-        <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700 p-4 sm:p-6">
-          <h3 className="text-base sm:text-lg font-semibold mb-4 text-white">Redis Operations</h3>
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-xl border border-gray-700/50 p-4 sm:p-6 hover:border-purple-500/50 transition-all duration-300">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base sm:text-lg font-bold text-white">Redis Operations</h3>
+            <div className="h-2 w-2 bg-purple-500 rounded-full animate-pulse"></div>
+          </div>
           <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={redisOpsData.slice(0, 20)}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="time" stroke="#9CA3AF" />
-              <YAxis stroke="#9CA3AF" />
+            <AreaChart data={redisOpsData.slice(0, 20)} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorRedisOps" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#A78BFA" stopOpacity={0.8}/>
+                  <stop offset="95%" stopColor="#A78BFA" stopOpacity={0.1}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+              <XAxis 
+                dataKey="time" 
+                stroke="#9CA3AF" 
+                fontSize={12}
+                tick={{ fill: '#9CA3AF' }}
+                axisLine={{ stroke: '#4B5563' }}
+              />
+              <YAxis 
+                stroke="#9CA3AF" 
+                fontSize={12}
+                tick={{ fill: '#9CA3AF' }}
+                axisLine={{ stroke: '#4B5563' }}
+              />
               <Tooltip 
                 contentStyle={{ 
                   backgroundColor: '#1F2937', 
-                  border: '1px solid #374151',
+                  border: '1px solid #A78BFA',
                   borderRadius: '8px',
-                  color: '#F3F4F6'
-                }} 
+                  color: '#F3F4F6',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)'
+                }}
+                labelStyle={{ color: '#A78BFA', fontWeight: 'bold' }}
+                cursor={{ stroke: '#A78BFA', strokeWidth: 2 }}
               />
-              <Legend wrapperStyle={{ color: '#F3F4F6' }} />
               <Area
                 type="monotone"
                 dataKey="value"
                 stroke="#A78BFA"
-                fill="#A78BFA"
-                fillOpacity={0.6}
+                strokeWidth={2}
+                fill="url(#colorRedisOps)"
+                animationDuration={1000}
+                animationBegin={0}
               />
             </AreaChart>
           </ResponsiveContainer>
         </div>
 
         {/* Celery Tasks */}
-        <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700 p-4 sm:p-6">
-          <h3 className="text-base sm:text-lg font-semibold mb-4 text-white">Celery Tasks</h3>
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-xl border border-gray-700/50 p-4 sm:p-6 hover:border-yellow-500/50 transition-all duration-300">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base sm:text-lg font-bold text-white">Celery Tasks</h3>
+            <div className="h-2 w-2 bg-yellow-500 rounded-full animate-pulse"></div>
+          </div>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={celeryTasksData.slice(0, 20)}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="time" stroke="#9CA3AF" />
-              <YAxis stroke="#9CA3AF" />
+            <BarChart data={celeryTasksData.slice(0, 20)} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorCeleryTasks" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#FBBF24" stopOpacity={0.9}/>
+                  <stop offset="95%" stopColor="#F59E0B" stopOpacity={0.6}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+              <XAxis 
+                dataKey="time" 
+                stroke="#9CA3AF" 
+                fontSize={12}
+                tick={{ fill: '#9CA3AF' }}
+                axisLine={{ stroke: '#4B5563' }}
+              />
+              <YAxis 
+                stroke="#9CA3AF" 
+                fontSize={12}
+                tick={{ fill: '#9CA3AF' }}
+                axisLine={{ stroke: '#4B5563' }}
+              />
               <Tooltip 
                 contentStyle={{ 
                   backgroundColor: '#1F2937', 
-                  border: '1px solid #374151',
+                  border: '1px solid #FBBF24',
                   borderRadius: '8px',
-                  color: '#F3F4F6'
-                }} 
+                  color: '#F3F4F6',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)'
+                }}
+                labelStyle={{ color: '#FBBF24', fontWeight: 'bold' }}
+                cursor={{ fill: 'rgba(251, 191, 36, 0.1)' }}
               />
-              <Legend wrapperStyle={{ color: '#F3F4F6' }} />
-              <Bar dataKey="value" fill="#FBBF24" />
+              <Bar 
+                dataKey="value" 
+                fill="url(#colorCeleryTasks)"
+                radius={[4, 4, 0, 0]}
+                animationDuration={1000}
+                animationBegin={0}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
         {/* Trades */}
-        <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700 p-4 sm:p-6">
-          <h3 className="text-base sm:text-lg font-semibold mb-4 text-white">Trades Executed</h3>
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-xl border border-gray-700/50 p-4 sm:p-6 hover:border-orange-500/50 transition-all duration-300">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base sm:text-lg font-bold text-white">Trades Executed</h3>
+            <div className="h-2 w-2 bg-orange-500 rounded-full animate-pulse"></div>
+          </div>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={tradesData.slice(0, 20)}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="time" stroke="#9CA3AF" />
-              <YAxis stroke="#9CA3AF" />
+            <LineChart data={tradesData.slice(0, 20)} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+              <XAxis 
+                dataKey="time" 
+                stroke="#9CA3AF" 
+                fontSize={12}
+                tick={{ fill: '#9CA3AF' }}
+                axisLine={{ stroke: '#4B5563' }}
+              />
+              <YAxis 
+                stroke="#9CA3AF" 
+                fontSize={12}
+                tick={{ fill: '#9CA3AF' }}
+                axisLine={{ stroke: '#4B5563' }}
+              />
               <Tooltip 
                 contentStyle={{ 
                   backgroundColor: '#1F2937', 
-                  border: '1px solid #374151',
+                  border: '1px solid #F97316',
                   borderRadius: '8px',
-                  color: '#F3F4F6'
-                }} 
+                  color: '#F3F4F6',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)'
+                }}
+                labelStyle={{ color: '#F97316', fontWeight: 'bold' }}
+                cursor={{ stroke: '#F97316', strokeWidth: 2 }}
               />
-              <Legend wrapperStyle={{ color: '#F3F4F6' }} />
               <Line
                 type="monotone"
                 dataKey="value"
-                stroke="#F472B6"
-                strokeWidth={2}
+                stroke="#F97316"
+                strokeWidth={3}
+                dot={{ fill: '#F97316', r: 4 }}
+                activeDot={{ r: 6, fill: '#EA580C' }}
+                animationDuration={1000}
+                animationBegin={0}
               />
             </LineChart>
           </ResponsiveContainer>
