@@ -668,46 +668,95 @@ def retrain_ml_model():
     time_limit=1800,  # 30 minutos límite
     soft_time_limit=1500,  # 25 minutos soft limit
 )
+@celery_app.task(
+    name="celery_app.tasks.cleanup_old_data",
+    bind=True,
+    max_retries=3,
+    default_retry_delay=300,  # 5 minutos
+    time_limit=1800,  # 30 minutos
+    soft_time_limit=1740  # 29 minutos
+)
 def cleanup_old_data():
     """
     Limpiar datos antiguos de la base de datos.
-    - Alertas leídas mayores a 30 días
+    - Mantener solo las 40 alertas más recientes (eliminar las demás)
     - Price history mayor a 90 días
+    
+    Esta tarea se ejecuta cada hora para mantener la base de datos limpia.
 
     Timeout extendido: 30 minutos (puede ser operación pesada).
     """
     db = get_db()
+    max_alerts = 40
     try:
-        cutoff_alerts = datetime.utcnow() - timedelta(days=30)
+        # ============================================================
+        # Limpiar alertas (mantener solo las 40 más recientes)
+        # ============================================================
+        total_alerts = db.query(Alert).count()
+        deleted_alerts = 0
+        alerts_kept = 0
+        
+        if total_alerts > max_alerts:
+            # Obtener las N alertas más recientes (por created_at desc)
+            recent_alerts = db.query(Alert.id).order_by(
+                Alert.created_at.desc()
+            ).limit(max_alerts).all()
+            
+            # Extraer los IDs de las alertas a mantener
+            keep_ids = [alert.id for alert in recent_alerts]
+            
+            if keep_ids:
+                # Eliminar todas las alertas excepto las N más recientes
+                deleted_alerts = db.query(Alert).filter(
+                    ~Alert.id.in_(keep_ids)
+                ).delete(synchronize_session=False)
+                alerts_kept = len(keep_ids)
+                
+                logger.info(
+                    "Old alerts cleaned up",
+                    deleted_alerts=deleted_alerts,
+                    total_alerts_before=total_alerts,
+                    alerts_kept=alerts_kept,
+                    max_alerts=max_alerts
+                )
+        else:
+            alerts_kept = total_alerts
+            logger.info(
+                "No alerts to clean up",
+                total_alerts=total_alerts,
+                max_alerts=max_alerts
+            )
+        
+        # ============================================================
+        # Eliminar price history antiguo (mayor a 90 días)
+        # ============================================================
         cutoff_prices = datetime.utcnow() - timedelta(days=90)
-
-        # Eliminar alertas antiguas leídas
-        deleted_alerts = db.query(Alert).filter(
-            Alert.is_read == True,
-            Alert.created_at < cutoff_alerts
-        ).delete()
-
-        # Eliminar price history antiguo
         deleted_prices = db.query(PriceHistory).filter(
             PriceHistory.timestamp < cutoff_prices
         ).delete()
 
+        # Commit de todas las operaciones
         db.commit()
 
         logger.info(
-            "Old data cleaned up",
+            "Old data cleaned up successfully",
             deleted_alerts=deleted_alerts,
-            deleted_prices=deleted_prices
+            deleted_prices=deleted_prices,
+            alerts_kept=alerts_kept,
+            total_alerts_before=total_alerts
         )
 
         return {
             "status": "success",
             "deleted_alerts": deleted_alerts,
-            "deleted_prices": deleted_prices
+            "deleted_prices": deleted_prices,
+            "alerts_kept": alerts_kept,
+            "total_alerts_before": total_alerts,
+            "message": f"Se eliminaron {deleted_alerts} alertas y {deleted_prices} registros de price history. Se mantuvieron {alerts_kept} alertas más recientes."
         }
 
     except Exception as e:
-        logger.error("Error cleaning up old data", error=str(e))
+        logger.error("Error cleaning up old data", error=str(e), exc_info=True)
         db.rollback()
         return {"status": "error", "error": str(e)}
     finally:

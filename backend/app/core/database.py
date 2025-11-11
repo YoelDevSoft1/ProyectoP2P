@@ -141,7 +141,7 @@ async def get_redis() -> aioredis.Redis:
 def init_db():
     """Crear todas las tablas en la base de datos"""
     # Importar todos los modelos aquí para que SQLAlchemy los conozca
-    from app.models import user, trade, price_history, alert
+    from app.models import user, trade, price_history, alert, app_config
     Base.metadata.create_all(bind=engine)
 
 

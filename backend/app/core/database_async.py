@@ -71,7 +71,7 @@ async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
 async def init_async_db():
     """Crear todas las tablas en la base de datos (asíncrono)"""
     # Importar todos los modelos aquí para que SQLAlchemy los conozca
-    from app.models import user, trade, price_history, alert
+    from app.models import user, trade, price_history, alert, app_config
     
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

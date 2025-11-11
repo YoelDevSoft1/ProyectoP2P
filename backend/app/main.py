@@ -9,10 +9,11 @@ import structlog
 import time
 
 from app.core.config import settings
-from app.core.database import init_db, close_db_connections
+from app.core.database import init_db, close_db_connections, SessionLocal
 from app.core.database_async import init_async_db, close_async_db_connections
 from app.core.redis_pool import redis_pool
 from app.core.metrics import metrics, initialize_metrics
+from app.services.config_service import ConfigService
 from app.api.endpoints import (
     advanced_arbitrage,
     analytics,
@@ -51,6 +52,20 @@ async def lifespan(app: FastAPI):
     # Inicializar base de datos síncrona
     init_db()
     logger.info("Synchronous database initialized")
+    
+    # Cargar configuración persistente desde la base de datos
+    try:
+        db = SessionLocal()
+        try:
+            config_service = ConfigService(db)
+            config_service.load_trading_config_to_settings()
+            logger.info("Persistent configuration loaded from database")
+        except Exception as e:
+            logger.warning(f"Could not load persistent configuration: {e}", exc_info=True)
+        finally:
+            db.close()
+    except Exception as e:
+        logger.warning(f"Error loading persistent configuration: {e}", exc_info=True)
     
     # Inicializar base de datos asíncrona
     await init_async_db()

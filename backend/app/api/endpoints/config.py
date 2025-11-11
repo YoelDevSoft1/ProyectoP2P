@@ -5,10 +5,13 @@ Permite leer y actualizar configuraciones (solo las que son seguras de modificar
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Literal, Dict
+from sqlalchemy.orm import Session
 import os
 import logging
 
 from app.core.config import settings
+from app.core.database import get_db
+from app.services.config_service import ConfigService
 
 logger = logging.getLogger(__name__)
 
@@ -231,23 +234,22 @@ async def get_configuration():
 
 
 @router.put("/config", response_model=AppConfigResponse)
-async def update_configuration(config: ConfigUpdateRequest):
+async def update_configuration(config: ConfigUpdateRequest, db: Session = Depends(get_db)):
     """
     Actualizar configuración de la aplicación.
     
-    ⚠️ NOTA IMPORTANTE: 
-    - Este endpoint actualmente NO persiste los cambios en el archivo .env
-    - Los cambios solo se aplican en memoria durante la ejecución
-    - Para cambios permanentes, se debe modificar el archivo .env y reiniciar el servidor
-    - Esto es por diseño de seguridad: las configuraciones sensibles no deben modificarse via API
+    ✅ CONFIGURACIÓN PERSISTENTE:
+    - Los cambios se guardan en la base de datos y persisten después de reiniciar
+    - La configuración de trading se carga automáticamente desde la base de datos al iniciar
+    - Los cambios se aplican inmediatamente en memoria y se guardan permanentemente
     
-    En el futuro, se podría implementar:
-    - Validación de permisos
-    - Persistencia en base de datos
-    - Logging de cambios
-    - Rollback de configuraciones
+    ⚠️ NOTA DE SEGURIDAD:
+    - Las configuraciones sensibles (tokens, contraseñas) NO se pueden modificar via API
+    - Para cambiar tokens/contraseñas, modifica el archivo .env y reinicia el servidor
     """
     try:
+        config_service = ConfigService(db)
+        
         # Actualizar solo las secciones que se envían
         if config.trading:
             # Actualizar configuración de trading en memoria
@@ -258,6 +260,17 @@ async def update_configuration(config: ConfigUpdateRequest):
             settings.MAX_TRADE_AMOUNT = config.trading.max_trade_amount
             settings.MAX_DAILY_TRADES = config.trading.max_daily_trades
             settings.STOP_LOSS_PERCENTAGE = config.trading.stop_loss_percentage
+            
+            # Guardar en base de datos (persistente)
+            config_service.set_config("trading.mode", config.trading.trading_mode, "Modo de trading (manual, auto, hybrid)")
+            config_service.set_config("trading.profit_margin_cop", config.trading.profit_margin_cop, "Margen de ganancia para COP (%)")
+            config_service.set_config("trading.profit_margin_ves", config.trading.profit_margin_ves, "Margen de ganancia para VES (%)")
+            config_service.set_config("trading.min_trade_amount", config.trading.min_trade_amount, "Monto mínimo de trade (USD)")
+            config_service.set_config("trading.max_trade_amount", config.trading.max_trade_amount, "Monto máximo de trade (USD)")
+            config_service.set_config("trading.max_daily_trades", config.trading.max_daily_trades, "Máximo de trades por día")
+            config_service.set_config("trading.stop_loss_percentage", config.trading.stop_loss_percentage, "Stop loss (%)")
+            
+            logger.info(f"Trading configuration updated and persisted: mode={config.trading.trading_mode}")
         
         if config.p2p:
             # Actualizar configuración P2P

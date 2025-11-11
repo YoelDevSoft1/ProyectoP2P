@@ -20,7 +20,8 @@ import {
   CheckCheck,
   RefreshCw,
   BarChart3,
-  Settings
+  Settings,
+  Trash2
 } from 'lucide-react'
 import api from '@/lib/api'
 import { formatColombiaDateTime } from '@/lib/dateUtils'
@@ -53,6 +54,9 @@ export default function AlertsPage() {
   const [priority, setPriority] = useState<AlertPriority>('all')
   const [status, setStatus] = useState<AlertStatus>('unread')
   const [selectedAlerts, setSelectedAlerts] = useState<Set<number>>(new Set())
+  const [cleanupStatus, setCleanupStatus] = useState<'idle' | 'cleaning' | 'success' | 'error'>('idle')
+  const [cleanupMessage, setCleanupMessage] = useState<string>('')
+  const [showCleanupConfirm, setShowCleanupConfirm] = useState<boolean>(false)
 
   const queryClient = useQueryClient()
 
@@ -130,6 +134,47 @@ export default function AlertsPage() {
       setSelectedAlerts(new Set())
     },
   })
+
+  // Limpiar alertas antiguas
+  const cleanupAlertsMutation = useMutation({
+    mutationFn: (maxAlerts: number = 40) => api.cleanupAlerts(maxAlerts),
+    onSuccess: (data) => {
+      setCleanupStatus('success')
+      setCleanupMessage(`Limpieza exitosa. Se mantuvieron las ${data.kept || 40} alertas más recientes.`)
+      setShowCleanupConfirm(false)
+      // Refrescar datos automáticamente
+      queryClient.invalidateQueries({ queryKey: ['alerts'] })
+      queryClient.invalidateQueries({ queryKey: ['alerts-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      refetch()
+      setTimeout(() => {
+        setCleanupStatus('idle')
+        setCleanupMessage('')
+      }, 5000)
+    },
+    onError: (error: any) => {
+      setCleanupStatus('error')
+      setCleanupMessage(error.response?.data?.detail || 'Error al limpiar las alertas')
+      setShowCleanupConfirm(false)
+      setTimeout(() => {
+        setCleanupStatus('idle')
+        setCleanupMessage('')
+      }, 5000)
+    },
+  })
+
+  const handleCleanupClick = () => {
+    setShowCleanupConfirm(true)
+  }
+
+  const handleCleanupConfirm = () => {
+    setCleanupStatus('cleaning')
+    cleanupAlertsMutation.mutate(40)
+  }
+
+  const handleCleanupCancel = () => {
+    setShowCleanupConfirm(false)
+  }
 
   const alerts: Alert[] = alertsData?.alerts || []
   const total = alertsData?.total || 0
@@ -335,6 +380,18 @@ export default function AlertsPage() {
                   {currentTime || '--:--:--'}
                 </p>
                 <button
+                  onClick={handleCleanupClick}
+                  disabled={cleanupAlertsMutation.isPending || showCleanupConfirm}
+                  className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Limpiar alertas antiguas (mantener solo las 40 más recientes)"
+                >
+                  {cleanupAlertsMutation.isPending ? (
+                    <RefreshCw className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-5 w-5" />
+                  )}
+                </button>
+                <button
                   onClick={() => refetch()}
                   className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
                   title="Actualizar"
@@ -345,6 +402,63 @@ export default function AlertsPage() {
             </div>
           </div>
         </header>
+
+        {/* Cleanup Confirmation Modal */}
+        {showCleanupConfirm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 max-w-md w-full">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-red-600 rounded-lg">
+                  <Trash2 className="h-6 w-6 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-white">Confirmar Limpieza</h3>
+              </div>
+              <p className="text-gray-300 mb-6">
+                Esta acción eliminará todas las alertas antiguas y mantendrá solo las <strong className="text-white">40 más recientes</strong>.
+                Esta acción no se puede deshacer.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCleanupCancel}
+                  disabled={cleanupAlertsMutation.isPending}
+                  className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleCleanupConfirm}
+                  disabled={cleanupAlertsMutation.isPending}
+                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {cleanupAlertsMutation.isPending ? 'Limpiando...' : 'Confirmar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Cleanup Status Message */}
+        {cleanupStatus !== 'idle' && (
+          <div className="px-4 sm:px-6 lg:px-8 pt-4">
+            <div
+              className={`
+                flex items-center gap-2 p-4 rounded-lg
+                ${cleanupStatus === 'success' ? 'bg-green-900/30 border border-green-500/50 text-green-400' : ''}
+                ${cleanupStatus === 'error' ? 'bg-red-900/30 border border-red-500/50 text-red-400' : ''}
+                ${cleanupStatus === 'cleaning' ? 'bg-blue-900/30 border border-blue-500/50 text-blue-400' : ''}
+              `}
+            >
+              {cleanupStatus === 'success' ? (
+                <CheckCircle className="h-5 w-5" />
+              ) : cleanupStatus === 'error' ? (
+                <XCircle className="h-5 w-5" />
+              ) : (
+                <RefreshCw className="h-5 w-5 animate-spin" />
+              )}
+              <span>{cleanupMessage || (cleanupStatus === 'cleaning' ? 'Limpiando alertas...' : '')}</span>
+            </div>
+          </div>
+        )}
 
         {/* Stats Cards */}
         {allAlertsStats && (

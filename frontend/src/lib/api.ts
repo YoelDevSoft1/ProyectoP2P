@@ -216,6 +216,21 @@ const api = {
     return data
   },
 
+  // Limpiar alertas antiguas (mantener solo las N más recientes)
+  cleanupAlerts: async (maxAlerts: number = 40) => {
+    try {
+      const { data } = await requestWithRetry(() =>
+        axiosInstance.post(`/analytics/alerts/cleanup`, null, {
+          params: { max_alerts: maxAlerts }
+        })
+      )
+      return data
+    } catch (error: any) {
+      console.error('Error cleaning up alerts:', error)
+      throw error
+    }
+  },
+
   // Analytics - Triangle Arbitrage
   analyzeTriangleArbitrage: async (initialAmount = 200000) => {
     const { data } = await axiosInstance.get('/analytics/triangle-arbitrage/analyze', {

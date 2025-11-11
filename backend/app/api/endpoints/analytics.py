@@ -244,6 +244,90 @@ async def mark_alert_as_read(alert_id: int, db: Session = Depends(get_db)):
     return {"status": "success", "alert_id": alert_id}
 
 
+@router.post("/alerts/cleanup")
+async def cleanup_alerts(
+    max_alerts: int = Query(default=40, ge=1, le=1000, description="Número máximo de alertas a mantener"),
+    db: Session = Depends(get_db)
+):
+    """
+    Limpiar alertas antiguas manteniendo solo las N más recientes.
+    
+    Esta función mantiene solo las alertas más recientes y elimina las demás,
+    sin importar si están leídas o no. Esto ayuda a mantener la base de datos
+    limpia y con solo la información relevante.
+    
+    Args:
+        max_alerts: Número máximo de alertas a mantener (por defecto 40)
+    
+    Returns:
+        dict: Resultado de la operación con estadísticas
+    """
+    try:
+        # Obtener total de alertas antes de limpiar
+        total_alerts_before = db.query(Alert).count()
+        
+        if total_alerts_before <= max_alerts:
+            return {
+                "status": "success",
+                "message": f"No hay alertas para eliminar. Total: {total_alerts_before}, Máximo permitido: {max_alerts}",
+                "total_alerts_before": total_alerts_before,
+                "total_alerts_after": total_alerts_before,
+                "deleted_alerts": 0,
+                "max_alerts": max_alerts
+            }
+        
+        # Obtener las N alertas más recientes (por created_at desc)
+        recent_alerts = db.query(Alert.id).order_by(
+            Alert.created_at.desc()
+        ).limit(max_alerts).all()
+        
+        # Extraer los IDs de las alertas a mantener
+        keep_ids = [alert.id for alert in recent_alerts]
+        
+        if not keep_ids:
+            return {
+                "status": "error",
+                "message": "No se encontraron alertas para mantener"
+            }
+        
+        # Eliminar todas las alertas excepto las N más recientes
+        deleted_count = db.query(Alert).filter(
+            ~Alert.id.in_(keep_ids)
+        ).delete(synchronize_session=False)
+        
+        db.commit()
+        
+        # Verificar total después de limpiar
+        total_alerts_after = db.query(Alert).count()
+        
+        logger.info(
+            "Alerts cleaned up via API",
+            deleted_alerts=deleted_count,
+            total_alerts_before=total_alerts_before,
+            total_alerts_after=total_alerts_after,
+            alerts_kept=len(keep_ids),
+            max_alerts=max_alerts
+        )
+        
+        return {
+            "status": "success",
+            "message": f"Se eliminaron {deleted_count} alertas. Se mantuvieron {len(keep_ids)} alertas más recientes.",
+            "total_alerts_before": total_alerts_before,
+            "total_alerts_after": total_alerts_after,
+            "deleted_alerts": deleted_count,
+            "alerts_kept": len(keep_ids),
+            "max_alerts": max_alerts
+        }
+        
+    except Exception as e:
+        logger.error(f"Error cleaning up alerts: {e}", exc_info=True)
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al limpiar alertas: {str(e)}"
+        )
+
+
 @router.post("/test-notification")
 async def test_notification():
     """
