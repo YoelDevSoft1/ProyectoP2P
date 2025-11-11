@@ -67,22 +67,22 @@ export function SystemHealth() {
     switch (status?.toLowerCase()) {
       case 'healthy':
       case 'connected':
-        return 'bg-green-100 text-green-800 border-green-200'
+        return 'bg-green-900/30 text-green-400 border-green-500/50'
       case 'degraded':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200'
+        return 'bg-yellow-900/30 text-yellow-400 border-yellow-500/50'
       case 'unhealthy':
       case 'error':
-        return 'bg-red-100 text-red-800 border-red-200'
+        return 'bg-red-900/30 text-red-400 border-red-500/50'
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200'
+        return 'bg-gray-800 text-gray-400 border-gray-700'
     }
   }
 
   if (loading && !health) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700 p-6">
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+          <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
         </div>
       </div>
     )
@@ -90,13 +90,13 @@ export function SystemHealth() {
 
   if (error && !health) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="text-center text-red-600">
+      <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700 p-6">
+        <div className="text-center text-red-400">
           <XCircle className="w-8 h-8 mx-auto mb-2" />
           <p>{error}</p>
           <button
             onClick={fetchHealth}
-            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
           >
             Reintentar
           </button>
@@ -133,17 +133,17 @@ export function SystemHealth() {
   ]
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">Estado del Sistema</h2>
+    <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700 p-4 sm:p-6">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+        <h2 className="text-xl sm:text-2xl font-bold text-white">Estado del Sistema</h2>
         <div className="flex items-center gap-2">
-          <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(health.status)}`}>
+          <span className={`px-3 py-1 rounded-full text-xs sm:text-sm font-medium border ${getStatusColor(health.status)}`}>
             {health.status.toUpperCase()}
           </span>
           <button
             onClick={fetchHealth}
             disabled={loading}
-            className="p-2 text-gray-600 hover:text-gray-800 disabled:opacity-50"
+            className="p-2 text-gray-400 hover:text-white disabled:opacity-50 transition-colors"
             title="Actualizar"
           >
             <Loader2 className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -151,7 +151,7 @@ export function SystemHealth() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {services.map((service) => {
           const serviceData = service.data
           const status = serviceData?.status || 'unknown'
@@ -162,17 +162,17 @@ export function SystemHealth() {
           return (
             <div
               key={service.key}
-              className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+              className="bg-gray-700/50 border border-gray-600 rounded-lg p-4 hover:bg-gray-700 transition-colors"
             >
               <div className="flex items-center justify-between mb-2">
-                <h3 className="font-semibold text-gray-700">{service.name}</h3>
+                <h3 className="font-semibold text-white text-sm sm:text-base">{service.name}</h3>
                 {getStatusIcon(status)}
               </div>
               
-              <div className="mt-2 space-y-1 text-sm text-gray-600">
+              <div className="mt-2 space-y-1 text-xs sm:text-sm text-gray-300">
                 <div className="flex items-center justify-between">
                   <span>Estado:</span>
-                  <span className={`font-medium ${getStatusColor(status).split(' ')[1]}`}>
+                  <span className={`font-medium capitalize ${getStatusColor(status).split(' ')[1]}`}>
                     {status}
                   </span>
                 </div>
@@ -180,34 +180,34 @@ export function SystemHealth() {
                 {latency !== undefined && (
                   <div className="flex items-center justify-between">
                     <span>Latencia:</span>
-                    <span className="font-mono">{latency}ms</span>
+                    <span className="font-mono text-gray-200">{latency}ms</span>
                   </div>
                 )}
                 
                 {workerCount !== undefined && (
                   <div className="flex items-center justify-between">
                     <span>Workers:</span>
-                    <span className="font-mono">{workerCount}</span>
+                    <span className="font-mono text-gray-200">{workerCount}</span>
                   </div>
                 )}
                 
                 {activeTasks !== undefined && (
                   <div className="flex items-center justify-between">
                     <span>Tareas activas:</span>
-                    <span className="font-mono">{activeTasks}</span>
+                    <span className="font-mono text-gray-200">{activeTasks}</span>
                   </div>
                 )}
                 
                 {serviceData?.pool_size !== undefined && (
                   <div className="flex items-center justify-between">
                     <span>Pool size:</span>
-                    <span className="font-mono">{serviceData.pool_size}</span>
+                    <span className="font-mono text-gray-200">{serviceData.pool_size}</span>
                   </div>
                 )}
               </div>
 
               {serviceData?.error && (
-                <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded">
+                <div className="mt-2 text-xs text-red-400 bg-red-900/30 border border-red-500/50 p-2 rounded">
                   {serviceData.error}
                 </div>
               )}
@@ -216,10 +216,10 @@ export function SystemHealth() {
         })}
       </div>
 
-      <div className="mt-6 pt-4 border-t">
-        <div className="flex items-center justify-between text-sm text-gray-600">
-          <span>Entorno: {health.environment}</span>
-          <span>Versión: {health.version}</span>
+      <div className="mt-6 pt-4 border-t border-gray-700">
+        <div className="flex items-center justify-between text-xs sm:text-sm text-gray-400 flex-wrap gap-2">
+          <span>Entorno: <span className="text-gray-300">{health.environment}</span></span>
+          <span>Versión: <span className="text-gray-300">{health.version}</span></span>
         </div>
       </div>
     </div>

@@ -278,6 +278,74 @@ const api = {
     return data
   },
 
+  // Machine Learning - Training (Gradient Boosting)
+  trainMLSpreadPredictor: async () => {
+    try {
+      const { data } = await requestWithRetry(() =>
+        axiosInstance.post('/analytics/ml/train-spread-predictor')
+      )
+      return data
+    } catch (error: any) {
+      console.error('Error training ML spread predictor:', error)
+      throw error
+    }
+  },
+
+  // Deep Learning - Training (GRU)
+  trainSpreadPredictor: async (epochs: number = 50, batchSize: number = 32, learningRate: number = 0.001) => {
+    try {
+      const { data } = await requestWithRetry(() =>
+        axiosInstance.post('/analytics/dl/train-spread-predictor', null, {
+          params: {
+            epochs,
+            batch_size: batchSize,
+            learning_rate: learningRate,
+          },
+        })
+      )
+      return data
+    } catch (error: any) {
+      console.error('Error training DL spread predictor:', error)
+      throw error
+    }
+  },
+
+  trainPricePredictor: async (epochs: number = 50, batchSize: number = 32, learningRate: number = 0.001) => {
+    try {
+      const { data } = await requestWithRetry(() =>
+        axiosInstance.post('/analytics/dl/train-price-predictor', null, {
+          params: {
+            epochs,
+            batch_size: batchSize,
+            learning_rate: learningRate,
+          },
+        })
+      )
+      return data
+    } catch (error: any) {
+      console.error('Error training price predictor:', error)
+      throw error
+    }
+  },
+
+  trainAnomalyDetector: async (epochs: number = 50, batchSize: number = 32, learningRate: number = 0.001) => {
+    try {
+      const { data } = await requestWithRetry(() =>
+        axiosInstance.post('/analytics/dl/train-anomaly-detector', null, {
+          params: {
+            epochs,
+            batch_size: batchSize,
+            learning_rate: learningRate,
+          },
+        })
+      )
+      return data
+    } catch (error: any) {
+      console.error('Error training anomaly detector:', error)
+      throw error
+    }
+  },
+
   // Analytics - Risk
   calculateVaR: async (returns: number[], confidenceLevel = 0.95, timeHorizonDays = 1) => {
     const { data } = await axiosInstance.post('/analytics/risk/calculate-var', {

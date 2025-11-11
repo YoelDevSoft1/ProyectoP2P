@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { Home, TrendingUp, Bell, Settings, BarChart3, Activity, Shield, Zap, Target, DollarSign, Wallet, LineChart, FileText, Menu, X } from 'lucide-react'
+import { Home, TrendingUp, Bell, Settings, BarChart3, Activity, Shield, Zap, Target, DollarSign, Wallet, LineChart, FileText, Menu, X, Brain } from 'lucide-react'
 import api from '@/lib/api'
 import { DashboardStats } from '@/components/DashboardStats'
 import { RecentTrades } from '@/components/RecentTrades'
@@ -20,8 +20,9 @@ import { P2PTradingPanel } from '@/components/P2PTradingPanel'
 import { MarketAnalysis } from '@/components/MarketAnalysis'
 import { ReportsExport } from '@/components/ReportsExport'
 import { ForexExpertTrading } from '@/components/ForexExpertTrading'
+import { MLInsights } from '@/components/MLInsights'
 
-type TabType = 'overview' | 'metrics' | 'performance' | 'inventory' | 'trading' | 'market' | 'reports' | 'arbitrage' | 'liquidity' | 'risk' | 'pricing'
+type TabType = 'overview' | 'metrics' | 'performance' | 'inventory' | 'trading' | 'ml' | 'market' | 'reports' | 'arbitrage' | 'liquidity' | 'risk' | 'pricing'
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<TabType>('overview')
@@ -40,6 +41,7 @@ export default function Dashboard() {
     { id: 'performance', label: 'Rendimiento', icon: LineChart },
     { id: 'inventory', label: 'Inventario', icon: Wallet },
     { id: 'trading', label: 'Trading', icon: Zap },
+    { id: 'ml', label: 'ML Insights', icon: Brain },
     { id: 'market', label: 'Mercado', icon: Activity },
     { id: 'reports', label: 'Reportes', icon: FileText },
     { id: 'arbitrage', label: 'Arbitraje', icon: Zap },
@@ -271,6 +273,13 @@ export default function Dashboard() {
                   <ForexExpertTrading />
                   <TradingControl />
                   <P2PTradingPanel />
+                </div>
+              )}
+
+              {/* Machine Learning Tab */}
+              {activeTab === 'ml' && (
+                <div className="space-y-4 sm:space-y-6 lg:space-y-8">
+                  <MLInsights />
                 </div>
               )}
 

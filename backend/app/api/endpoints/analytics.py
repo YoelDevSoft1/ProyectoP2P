@@ -35,17 +35,56 @@ risk_service = RiskManagementService()
 pricing_service = CompetitivePricingService()
 
 
+def _get_price_from_history(entry: PriceHistory) -> float:
+    """
+    PriceHistory almacena bid/ask/avg; este helper obtiene un valor usable.
+    Prioriza avg_price, luego bid_price, luego ask_price.
+    """
+    candidates = [
+        getattr(entry, "avg_price", None),
+        getattr(entry, "bid_price", None),
+        getattr(entry, "ask_price", None),
+    ]
+    for value in candidates:
+        if value is not None and value > 0:
+            return float(value)
+    for value in candidates:
+        if value not in (None, 0):
+            return float(value)
+    return 0.0
+
+
+def _get_volume_from_history(entry: PriceHistory) -> float:
+    """Devuelve el volumen disponible (volume_24h) o 0 si no existe."""
+    volume = getattr(entry, "volume_24h", None)
+    return float(volume) if volume not in (None, "") else 0.0
+
+
 @router.get("/dashboard")
-async def get_dashboard_data(db: Session = Depends(get_db)):
+async def get_dashboard_data(
+    db: Session = Depends(get_db),
+    only_real_trades: bool = Query(default=False, description="Solo mostrar trades reales (con binance_order_id)")
+):
     """
     Datos principales para el dashboard.
+    
+    Args:
+        only_real_trades: Si es True, solo muestra trades reales (con binance_order_id).
+                         Si es False, muestra todos los trades (reales y simulados).
     """
     # Últimas 24 horas
     last_24h = datetime.utcnow() - timedelta(hours=24)
     last_7d = datetime.utcnow() - timedelta(days=7)
 
+    # Base query para trades
+    base_query = db.query(Trade)
+    
+    # Filtrar solo trades reales si se solicita
+    if only_real_trades:
+        base_query = base_query.filter(Trade.binance_order_id.isnot(None))
+
     # Trades de hoy
-    trades_today = db.query(Trade).filter(
+    trades_today = base_query.filter(
         Trade.created_at >= last_24h
     ).all()
 
@@ -55,7 +94,7 @@ async def get_dashboard_data(db: Session = Depends(get_db)):
     profit_today = sum(t.actual_profit or 0 for t in completed_today)
 
     # Trades de la semana
-    trades_week = db.query(Trade).filter(
+    trades_week = base_query.filter(
         Trade.created_at >= last_7d,
         Trade.status == TradeStatus.COMPLETED
     ).all()
@@ -383,6 +422,74 @@ async def predict_optimal_timing(
 
     result = ml_service.predict_optimal_timing(market_conditions)
     return result
+
+
+@router.post("/ml/train-spread-predictor")
+async def train_ml_spread_predictor(
+    db: Session = Depends(get_db)
+):
+    """
+    Entrenar modelo ML (Gradient Boosting) para predicción de spreads.
+    Este modelo es usado por el endpoint /ml/predict-spread.
+    """
+    try:
+        # Obtener datos históricos
+        price_history = db.query(PriceHistory).order_by(PriceHistory.timestamp).all()
+        
+        if len(price_history) < 100:
+            raise HTTPException(
+                status_code=400,
+                detail=f"No hay suficientes datos. Se necesitan al menos 100 registros, se encontraron {len(price_history)}"
+            )
+        
+        # Preparar datos históricos en el formato esperado por ml_service
+        historical_data = []
+        for ph in price_history:
+            # Obtener depth data si está disponible (simulado para datos históricos)
+            price = _get_price_from_history(ph)
+            volume = _get_volume_from_history(ph)
+            
+            # Calcular spread si no está disponible
+            spread = ph.spread or 0
+            if spread == 0 and ph.bid_price and ph.ask_price:
+                spread = ((ph.ask_price - ph.bid_price) / price) * 100 if price > 0 else 0
+            
+            historical_data.append({
+                "spread": spread,
+                "bid_volume": volume * 0.5,  # Estimación: mitad bid, mitad ask
+                "ask_volume": volume * 0.5,
+                "bid_ask_ratio": 1.0,  # Por defecto
+                "volatility": 0,  # Se calcularía con datos históricos
+                "momentum": 0,  # Se calcularía con datos históricos
+                "num_orders_bid": 10,  # Valor por defecto
+                "num_orders_ask": 10,  # Valor por defecto
+                "timestamp": ph.timestamp,
+            })
+        
+        # Entrenar modelo
+        result = ml_service.train_spread_predictor(historical_data)
+        
+        if not result.get("success"):
+            raise HTTPException(
+                status_code=500,
+                detail=result.get("error", "Error desconocido al entrenar el modelo")
+            )
+        
+        return {
+            "status": "success",
+            "message": "Modelo ML (Gradient Boosting) entrenado exitosamente",
+            "model_type": result.get("model", "Gradient Boosting Regressor"),
+            "train_score": result.get("train_score"),
+            "test_score": result.get("test_score"),
+            "samples": result.get("samples"),
+            "timestamp": result.get("timestamp"),
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error training ML spread predictor: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error training model: {str(e)}")
 
 
 # ============================================================================
@@ -717,9 +824,9 @@ async def train_price_predictor(
         import pandas as pd
         data = pd.DataFrame([
             {
-                "price": ph.price,
+                "price": _get_price_from_history(ph),
                 "spread": ph.spread or 0,
-                "volume": ph.volume or 0,
+                "volume": _get_volume_from_history(ph),
                 "timestamp": ph.timestamp,
                 "hour": ph.timestamp.hour,
                 "day_of_week": ph.timestamp.weekday(),
@@ -841,8 +948,8 @@ async def train_spread_predictor(
         data = pd.DataFrame([
             {
                 "spread": ph.spread or 0,
-                "price": ph.price,
-                "volume": ph.volume or 0,
+                "price": _get_price_from_history(ph),
+                "volume": _get_volume_from_history(ph),
                 "timestamp": ph.timestamp,
                 "hour": ph.timestamp.hour,
                 "day_of_week": ph.timestamp.weekday(),
@@ -898,9 +1005,9 @@ async def train_anomaly_detector(
         import pandas as pd
         data = pd.DataFrame([
             {
-                "price": ph.price,
+                "price": _get_price_from_history(ph),
                 "spread": ph.spread or 0,
-                "volume": ph.volume or 0,
+                "volume": _get_volume_from_history(ph),
                 "timestamp": ph.timestamp,
                 "hour": ph.timestamp.hour,
                 "day_of_week": ph.timestamp.weekday(),
@@ -961,9 +1068,9 @@ async def detect_anomalies_dl(
         
         data = pd.DataFrame([
             {
-                "price": ph.price,
+                "price": _get_price_from_history(ph),
                 "spread": ph.spread or 0,
-                "volume": ph.volume or 0,
+                "volume": _get_volume_from_history(ph),
                 "hour": ph.timestamp.hour,
                 "day_of_week": ph.timestamp.weekday(),
             }
@@ -987,7 +1094,7 @@ async def detect_anomalies_dl(
         for i, (ph, is_anomaly) in enumerate(zip(recent_history, anomalies)):
             results.append({
                 "timestamp": ph.timestamp.isoformat(),
-                "price": ph.price,
+                "price": _get_price_from_history(ph),
                 "spread": ph.spread,
                 "is_anomaly": is_anomaly
             })
@@ -1088,9 +1195,9 @@ async def train_advanced_transformer(
             
             data = pd.DataFrame([
                 {
-                    "price": ph.price,
+                    "price": _get_price_from_history(ph),
                     "spread": ph.spread or 0,
-                    "volume": ph.volume or 0,
+                    "volume": _get_volume_from_history(ph),
                     "timestamp": ph.timestamp,
                 }
                 for ph in price_history
@@ -1188,9 +1295,9 @@ async def train_profit_aware_model(
             
             data = pd.DataFrame([
                 {
-                    "price": ph.price,
+                    "price": _get_price_from_history(ph),
                     "spread": ph.spread or 0,
-                    "volume": ph.volume or 0,
+                    "volume": _get_volume_from_history(ph),
                     "timestamp": ph.timestamp,
                 }
                 for ph in price_history
@@ -1281,9 +1388,9 @@ async def train_ensemble_models(
             
             data = pd.DataFrame([
                 {
-                    "price": ph.price,
+                    "price": _get_price_from_history(ph),
                     "spread": ph.spread or 0,
-                    "volume": ph.volume or 0,
+                    "volume": _get_volume_from_history(ph),
                     "timestamp": ph.timestamp,
                 }
                 for ph in price_history
@@ -1344,9 +1451,9 @@ async def backtest_strategy(
         # Preparar datos
         data = pd.DataFrame([
             {
-                "price": ph.price,
+                "price": _get_price_from_history(ph),
                 "spread": ph.spread or 0,
-                "volume": ph.volume or 0,
+                "volume": _get_volume_from_history(ph),
                 "timestamp": ph.timestamp,
             }
             for ph in price_history
@@ -1409,7 +1516,7 @@ async def get_profit_metrics(
         import pandas as pd
         
         # Preparar datos
-        prices = pd.Series([ph.price for ph in price_history])
+        prices = pd.Series([_get_price_from_history(ph) for ph in price_history])
         returns = prices.pct_change().dropna()
         
         # Calcular métricas

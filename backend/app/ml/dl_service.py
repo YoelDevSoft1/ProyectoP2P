@@ -23,19 +23,53 @@ class TimeSeriesDataset(Dataset):
     """Dataset para series temporales."""
     
     def __init__(self, data: np.ndarray, targets: Optional[np.ndarray] = None, sequence_length: int = 10):
+        """
+        Args:
+            data: Array de datos. Puede ser:
+                - 2D (n_samples, n_features): se crearán secuencias
+                - 3D (n_samples, sequence_length, n_features): datos ya en forma de secuencias
+            targets: Array de targets (n_samples,)
+            sequence_length: Longitud de secuencia (solo usado si data es 2D)
+        """
         self.data = data
         self.targets = targets
         self.sequence_length = sequence_length
         
+        # Detectar si los datos ya están en forma de secuencias
+        if len(data.shape) == 3:
+            # Los datos ya están en forma (n_samples, seq_len, n_features)
+            self.data_is_sequences = True
+            logger.debug(f"Data is already in sequence format: {data.shape}")
+        elif len(data.shape) == 2:
+            # Los datos son 2D, necesitamos crear secuencias
+            self.data_is_sequences = False
+            logger.debug(f"Data is 2D, will create sequences: {data.shape}")
+        else:
+            raise ValueError(f"Unsupported data shape: {data.shape}. Expected 2D or 3D.")
+        
     def __len__(self):
-        return len(self.data) - self.sequence_length + 1
+        if self.data_is_sequences:
+            # Si los datos ya son secuencias, simplemente retornar el número de muestras
+            return len(self.data)
+        else:
+            # Si los datos son 2D, crear secuencias
+            return len(self.data) - self.sequence_length + 1
     
     def __getitem__(self, idx):
-        sequence = self.data[idx:idx + self.sequence_length]
-        if self.targets is not None:
-            target = self.targets[idx + self.sequence_length - 1]
-            return torch.FloatTensor(sequence), torch.FloatTensor([target])
-        return torch.FloatTensor(sequence)
+        if self.data_is_sequences:
+            # Los datos ya están en forma de secuencias, solo indexar
+            sequence = self.data[idx]
+            if self.targets is not None:
+                target = self.targets[idx]
+                return torch.FloatTensor(sequence), torch.FloatTensor([target])
+            return torch.FloatTensor(sequence)
+        else:
+            # Crear secuencia desde datos 2D
+            sequence = self.data[idx:idx + self.sequence_length]
+            if self.targets is not None:
+                target = self.targets[idx + self.sequence_length - 1]
+                return torch.FloatTensor(sequence), torch.FloatTensor([target])
+            return torch.FloatTensor(sequence)
 
 
 class DLModelTrainer:
@@ -207,9 +241,20 @@ class DLModelTrainer:
                 dropout=0.2
             )
             
+            # Verificar formas antes de crear datasets
+            logger.info(f"Data shapes - X_train: {X_train.shape}, y_train: {y_train.shape}, X_test: {X_test.shape}, y_test: {y_test.shape}")
+            logger.info(f"Expected: X should be (n_samples, sequence_length={10}, n_features={len(feature_cols)})")
+            
             # Dataset y DataLoader
             train_dataset = TimeSeriesDataset(X_train, y_train, sequence_length=10)
             test_dataset = TimeSeriesDataset(X_test, y_test, sequence_length=10)
+            
+            # Verificar que el dataset funciona correctamente
+            if len(train_dataset) > 0:
+                sample_x, sample_y = train_dataset[0]
+                logger.info(f"Sample from train_dataset - x shape: {sample_x.shape}, y shape: {sample_y.shape}")
+                logger.info(f"Expected sample x shape: ({10}, {len(feature_cols)})")
+            
             train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
             test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
             
@@ -222,9 +267,17 @@ class DLModelTrainer:
             train_losses = []
             for epoch in range(epochs):
                 epoch_loss = 0
+                batch_count = 0
                 for batch_x, batch_y in train_loader:
                     batch_x = to_device(batch_x, self.device)
                     batch_y = to_device(batch_y, self.device)
+                    
+                    # Log formas solo en el primer batch del primer epoch para debugging
+                    if epoch == 0 and batch_count == 0:
+                        logger.info(f"First batch shapes - batch_x: {batch_x.shape}, batch_y: {batch_y.shape}")
+                        logger.info(f"Model GRU expects: (batch_size, seq_len={10}, input_size={len(feature_cols)})")
+                        if len(batch_x.shape) != 3:
+                            raise ValueError(f"Batch x has wrong shape: {batch_x.shape}. Expected 3D: (batch, seq_len, features)")
                     
                     optimizer.zero_grad()
                     outputs = model(batch_x)
@@ -233,6 +286,7 @@ class DLModelTrainer:
                     optimizer.step()
                     
                     epoch_loss += loss.item()
+                    batch_count += 1
                 
                 avg_loss = epoch_loss / len(train_loader)
                 train_losses.append(avg_loss)
