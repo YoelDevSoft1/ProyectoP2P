@@ -131,9 +131,10 @@ export default function Dashboard() {
             Monitoreo
           </Link>
 
-          <button
-            className="flex items-center w-full px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-colors"
-            disabled
+          <Link
+            href="/alerts"
+            onClick={() => setSidebarOpen(false)}
+            className="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-colors"
           >
             <Bell className="h-5 w-5 mr-3" />
             Alertas
@@ -142,7 +143,7 @@ export default function Dashboard() {
                 {dashboardData.alerts.unread}
               </span>
             )}
-          </button>
+          </Link>
 
           <button
             className="flex items-center w-full px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-colors"

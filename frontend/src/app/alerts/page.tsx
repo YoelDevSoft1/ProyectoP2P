@@ -18,7 +18,9 @@ import {
   Menu,
   X,
   CheckCheck,
-  RefreshCw
+  RefreshCw,
+  BarChart3,
+  Settings
 } from 'lucide-react'
 import api from '@/lib/api'
 import { formatColombiaDateTime } from '@/lib/dateUtils'
@@ -129,7 +131,7 @@ export default function AlertsPage() {
     },
   })
 
-  const alerts = alertsData?.alerts || []
+  const alerts: Alert[] = alertsData?.alerts || []
   const total = alertsData?.total || 0
   const totalPages = Math.ceil(total / limit)
 
@@ -215,7 +217,7 @@ export default function AlertsPage() {
     if (selectedAlerts.size === alerts.length) {
       setSelectedAlerts(new Set())
     } else {
-      setSelectedAlerts(new Set(alerts.map(a => a.id)))
+      setSelectedAlerts(new Set(alerts.map((a: Alert) => a.id)))
     }
   }
 
@@ -227,53 +229,84 @@ export default function AlertsPage() {
 
   return (
     <div className="min-h-screen bg-gray-900">
-      {/* Mobile Sidebar */}
+      {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
+      {/* Sidebar */}
       <div className={`
-        fixed top-0 left-0 h-full w-64 bg-gray-800 border-r border-gray-700 z-50 transform transition-transform duration-300 ease-in-out
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        fixed inset-y-0 left-0 w-64 bg-gray-800 border-r border-gray-700 z-50
+        transform transition-transform duration-300 ease-in-out
         lg:translate-x-0
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-xl font-bold text-white">Sistema P2P</h2>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="lg:hidden text-gray-400 hover:text-white"
-            >
-              <X className="h-6 w-6" />
-            </button>
+        <div className="flex items-center justify-between h-16 px-6 border-b border-gray-700">
+          <div className="flex items-center">
+            <TrendingUp className="h-8 w-8 text-primary-500" />
+            <span className="ml-2 text-xl font-bold text-white">P2P Dashboard</span>
           </div>
-          <nav className="space-y-2">
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-700 rounded-lg transition-colors"
-            >
-              <Home className="h-5 w-5" />
-              <span>Dashboard</span>
-            </Link>
-            <Link
-              href="/alerts"
-              className="flex items-center gap-3 px-4 py-3 bg-primary-600 text-white rounded-lg"
-            >
-              <Bell className="h-5 w-5" />
-              <span>Alertas</span>
-            </Link>
-            <Link
-              href="/monitoring"
-              className="flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-700 rounded-lg transition-colors"
-            >
-              <Activity className="h-5 w-5" />
-              <span>Monitoreo</span>
-            </Link>
-          </nav>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden text-gray-400 hover:text-white"
+          >
+            <X className="h-6 w-6" />
+          </button>
         </div>
+
+        <nav className="mt-6 px-4 space-y-2">
+          <Link
+            href="/"
+            onClick={() => setSidebarOpen(false)}
+            className="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-colors"
+          >
+            <Home className="h-5 w-5 mr-3" />
+            Landing Page
+          </Link>
+
+          <Link
+            href="/dashboard"
+            onClick={() => setSidebarOpen(false)}
+            className="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-colors"
+          >
+            <BarChart3 className="h-5 w-5 mr-3" />
+            Dashboard
+          </Link>
+
+          <Link
+            href="/monitoring"
+            onClick={() => setSidebarOpen(false)}
+            className="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-colors"
+          >
+            <Activity className="h-5 w-5 mr-3" />
+            Monitoreo
+          </Link>
+
+          <Link
+            href="/alerts"
+            onClick={() => setSidebarOpen(false)}
+            className="flex items-center px-4 py-3 bg-primary-600 text-white rounded-lg"
+          >
+            <Bell className="h-5 w-5 mr-3" />
+            Alertas
+            {allAlertsStats && allAlertsStats.unread > 0 && (
+              <span className="ml-auto bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                {allAlertsStats.unread}
+              </span>
+            )}
+          </Link>
+
+          <button
+            className="flex items-center w-full px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-colors"
+            disabled
+          >
+            <Settings className="h-5 w-5 mr-3" />
+            Configuración
+          </button>
+        </nav>
       </div>
 
       {/* Main Content */}
