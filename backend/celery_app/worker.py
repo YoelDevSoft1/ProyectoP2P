@@ -224,12 +224,18 @@ def task_prerun_handler(sender=None, task_id=None, task=None, args=None, kwargs=
     task_obj = task or sender
     task_name = getattr(task_obj, "name", "unknown")
     
+    # Extraer nombre corto de la tarea (sin el prefijo celery_app.tasks.)
+    if "." in task_name:
+        task_name_short = task_name.split(".")[-1]
+    else:
+        task_name_short = task_name
+    
     # Registrar métrica de tarea iniciada
     try:
-        metrics.track_celery_task(task_name, status="started")
-        celery_tasks_active.labels(task_name=task_name).inc()
+        metrics.track_celery_task(task_name_short, status="started")
+        celery_tasks_active.labels(task_name=task_name_short).inc()
     except Exception as e:
-        logger.warning("Failed to track Celery task start", error=str(e))
+        logger.warning("Failed to track Celery task start", error=str(e), task_name=task_name)
 
     delivery_info = {}
     if task_obj and getattr(task_obj, "request", None):
@@ -251,12 +257,18 @@ def task_postrun_handler(sender=None, task_id=None, task=None, args=None, kwargs
     task_obj = task or sender
     task_name = getattr(task_obj, "name", "unknown")
     
+    # Extraer nombre corto de la tarea (sin el prefijo celery_app.tasks.)
+    if "." in task_name:
+        task_name_short = task_name.split(".")[-1]
+    else:
+        task_name_short = task_name
+    
     # Registrar métrica de tarea completada
     try:
-        metrics.track_celery_task(task_name, duration=duration, status="succeeded")
-        celery_tasks_active.labels(task_name=task_name).dec()
+        metrics.track_celery_task(task_name_short, duration=duration, status="succeeded")
+        celery_tasks_active.labels(task_name=task_name_short).dec()
     except Exception as e:
-        logger.warning("Failed to track Celery task completion", error=str(e))
+        logger.warning("Failed to track Celery task completion", error=str(e), task_name=task_name)
 
 
 @task_failure.connect
@@ -268,12 +280,18 @@ def task_failure_handler(sender=None, task_id=None, exception=None, traceback=No
     # Obtener nombre de la tarea
     task_name = sender.name if sender else "unknown"
     
+    # Extraer nombre corto de la tarea (sin el prefijo celery_app.tasks.)
+    if "." in task_name:
+        task_name_short = task_name.split(".")[-1]
+    else:
+        task_name_short = task_name
+    
     # Registrar métrica de tarea fallida
     try:
-        metrics.track_celery_task(task_name, duration=duration, status="failed")
-        celery_tasks_active.labels(task_name=task_name).dec()
+        metrics.track_celery_task(task_name_short, duration=duration, status="failed")
+        celery_tasks_active.labels(task_name=task_name_short).dec()
     except Exception as e:
-        logger.warning("Failed to track Celery task failure", error=str(e))
+        logger.warning("Failed to track Celery task failure", error=str(e), task_name=task_name)
 
 
 @task_retry.connect

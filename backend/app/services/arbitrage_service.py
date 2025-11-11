@@ -477,7 +477,29 @@ class ArbitrageService:
         filtered.sort(key=lambda item: self._to_float(item.get("score")), reverse=True)
 
         top_limit = max(1, top_n)
-        return filtered[:top_limit]
+        result = filtered[:top_limit]
+        
+        # Actualizar métrica de oportunidades activas de arbitraje
+        try:
+            from app.core.metrics import active_arbitrage_opportunities
+            # Contar por estrategia
+            strategies = {}
+            for opp in result:
+                strategy = opp.get("strategy", "unknown")
+                strategies[strategy] = strategies.get(strategy, 0) + 1
+            
+            # Actualizar gauge para cada estrategia
+            for strategy, count in strategies.items():
+                active_arbitrage_opportunities.labels(strategy=strategy).set(count)
+            
+            # Si no hay oportunidades, establecer a 0 para todas las estrategias conocidas
+            if not strategies:
+                for strategy in ["spot_to_p2p", "cross_currency", "triangle_arbitrage"]:
+                    active_arbitrage_opportunities.labels(strategy=strategy).set(0)
+        except Exception:
+            pass  # No fallar si las métricas fallan
+        
+        return result
 
     def _calculate_cross_profit(
         self,

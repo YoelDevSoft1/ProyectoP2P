@@ -12,6 +12,7 @@ from datetime import datetime
 
 from app.core.database import SessionLocal
 from app.core.config import settings
+from app.core.metrics import metrics
 from app.services.binance_service import BinanceService
 from app.models.trade import Trade, TradeType, TradeStatus
 from app.models.alert import Alert, AlertType, AlertPriority
@@ -195,6 +196,17 @@ class TradingBot:
             self.db.add(trade)
             self.db.commit()
 
+            # Registrar métrica de trade ejecutado
+            try:
+                from app.core.metrics import trades_executed_total
+                trades_executed_total.labels(
+                    asset=trade.asset,
+                    fiat=trade.fiat,
+                    status="pending"
+                ).inc()
+            except Exception:
+                pass  # No fallar si las métricas fallan
+
             logger.info(
                 "Trade created",
                 trade_id=trade.id,
@@ -216,6 +228,17 @@ class TradingBot:
             trade.actual_profit = (amount * opportunity["buy_price"]) * (opportunity["potential_profit_percent"] / 100)
 
             self.db.commit()
+
+            # Actualizar métrica de trade completado
+            try:
+                from app.core.metrics import trades_executed_total
+                trades_executed_total.labels(
+                    asset=trade.asset,
+                    fiat=trade.fiat,
+                    status="completed"
+                ).inc()
+            except Exception:
+                pass  # No fallar si las métricas fallan
 
             # Crear alerta de operación completada
             alert = Alert(

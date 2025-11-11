@@ -85,6 +85,17 @@ class P2PTradingService:
             self.db.add(trade)
             self.db.commit()
             self.db.refresh(trade)
+            
+            # Registrar métrica de trade ejecutado
+            try:
+                from app.core.metrics import trades_executed_total
+                trades_executed_total.labels(
+                    asset=trade.asset,
+                    fiat=trade.fiat,
+                    status="pending"
+                ).inc()
+            except Exception:
+                pass  # No fallar si las métricas fallan
         except SQLAlchemyError as exc:
             self.db.rollback()
             logger.error("p2p_trading.db_error", error=str(exc))
@@ -112,6 +123,18 @@ class P2PTradingService:
             trade.binance_order_id = order_id
             trade.updated_at = datetime.utcnow()
             self.db.commit()
+            
+            # Actualizar métrica de trade en progreso
+            try:
+                from app.core.metrics import trades_executed_total
+                trades_executed_total.labels(
+                    asset=trade.asset,
+                    fiat=trade.fiat,
+                    status="in_progress"
+                ).inc()
+            except Exception:
+                pass  # No fallar si las métricas fallan
+            
             logger.info(
                 "p2p_trading.trade_started",
                 trade_id=trade.id,
@@ -127,6 +150,18 @@ class P2PTradingService:
 
         error_msg = result.get("error") or result.get("message") or "Error desconocido"
         self._mark_trade_failed(trade, error_msg)
+        
+        # Registrar métrica de trade fallido
+        try:
+            from app.core.metrics import trades_executed_total
+            trades_executed_total.labels(
+                asset=trade.asset,
+                fiat=trade.fiat,
+                status="failed"
+            ).inc()
+        except Exception:
+            pass  # No fallar si las métricas fallan
+        
         return {"success": False, "trade_id": trade.id, "error": error_msg}
 
     async def cancel_trade(self, trade_id: int) -> Dict:
