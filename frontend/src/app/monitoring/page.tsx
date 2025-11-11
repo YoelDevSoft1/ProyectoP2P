@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Home, TrendingUp, Bell, Settings, BarChart3, Activity, Menu, X } from 'lucide-react'
 import { SystemHealth } from '@/components/SystemHealth'
 import { MetricsDashboard } from '@/components/MetricsDashboard'
+import { getCurrentColombiaTimeString } from '@/lib/dateUtils'
 
 export default function MonitoringPage() {
   const [currentTime, setCurrentTime] = useState<string>('')
@@ -13,7 +14,7 @@ export default function MonitoringPage() {
   // Update time on client side only to avoid hydration mismatch
   useEffect(() => {
     const updateTime = () => {
-      setCurrentTime(new Date().toLocaleTimeString('es'))
+      setCurrentTime(getCurrentColombiaTimeString())
     }
     updateTime()
     const interval = setInterval(updateTime, 1000)

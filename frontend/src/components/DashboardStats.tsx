@@ -1,6 +1,7 @@
 'use client'
 
 import { DollarSign, TrendingUp, Activity, AlertCircle } from 'lucide-react'
+import { formatColombiaDateTime } from '@/lib/dateUtils'
 
 interface DashboardData {
   today: {
@@ -109,7 +110,7 @@ export function DashboardStats({ data }: DashboardStatsProps) {
                 Trade #{data.latest_trade.id} - {data.latest_trade.type.toUpperCase()} {data.latest_trade.amount} USDT/{data.latest_trade.fiat}
               </p>
               <p className="text-sm text-gray-400 mt-1">
-                {new Date(data.latest_trade.created_at).toLocaleString('es')}
+                {formatColombiaDateTime(data.latest_trade.created_at)}
               </p>
             </div>
             <span className={`px-3 py-1 rounded-full text-sm font-medium ${

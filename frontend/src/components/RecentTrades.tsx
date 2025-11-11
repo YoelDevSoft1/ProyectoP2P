@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { ArrowUpRight, ArrowDownRight, ExternalLink } from 'lucide-react'
 import api from '@/lib/api'
+import { formatColombiaDate } from '@/lib/dateUtils'
 
 export function RecentTrades() {
   const { data: tradesData, isLoading } = useQuery({
@@ -62,7 +63,7 @@ export function RecentTrades() {
                       {trade.type.toUpperCase()} {trade.crypto_amount.toFixed(2)} {trade.asset}
                     </p>
                     <p className="text-sm text-gray-400">
-                      {trade.fiat} • {new Date(trade.created_at).toLocaleDateString('es')}
+                      {trade.fiat} • {formatColombiaDate(trade.created_at)}
                     </p>
                   </div>
                 </div>

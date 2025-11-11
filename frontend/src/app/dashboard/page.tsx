@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { Home, TrendingUp, Bell, Settings, BarChart3, Activity, Shield, Zap, Target, DollarSign, Wallet, LineChart, FileText, Menu, X, Brain } from 'lucide-react'
 import api from '@/lib/api'
+import { getCurrentColombiaTimeString } from '@/lib/dateUtils'
 import { DashboardStats } from '@/components/DashboardStats'
 import { RecentTrades } from '@/components/RecentTrades'
 import { AlertsList } from '@/components/AlertsList'
@@ -53,7 +54,7 @@ export default function Dashboard() {
   // Update time on client side only to avoid hydration mismatch
   useEffect(() => {
     const updateTime = () => {
-      setCurrentTime(new Date().toLocaleTimeString('es'))
+      setCurrentTime(getCurrentColombiaTimeString())
     }
     updateTime()
     const interval = setInterval(updateTime, 1000)

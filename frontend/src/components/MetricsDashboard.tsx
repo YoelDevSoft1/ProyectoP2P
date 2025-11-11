@@ -5,6 +5,7 @@ import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Cartesia
 import api from '@/lib/api'
 import { parsePrometheusMetrics, getMetricValue, getMetricValues, sumMetricValues } from '../lib/prometheus'
 import { Loader2, TrendingUp, Activity, Database, MessageSquare } from 'lucide-react'
+import { formatColombiaTimeOnly } from '@/lib/dateUtils'
 
 interface MetricData {
   time: string
@@ -42,6 +43,41 @@ export function MetricsDashboard() {
     const interval = setInterval(fetchMetrics, 15000)
     return () => clearInterval(interval)
   }, [])
+
+  // Debug: Log available metrics y valores (solo en desarrollo)
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && metrics.size > 0) {
+      const metricNames = Array.from(metrics.keys())
+      console.log('📊 Available metrics:', metricNames)
+      
+      // Log detallado de cada métrica que buscamos
+      const trackedMetrics = [
+        'http_requests_total',
+        'db_queries_total', 
+        'redis_operations_total',
+        'celery_tasks_total',
+        'trades_executed_total',
+        'active_arbitrage_opportunities'
+      ]
+      
+      trackedMetrics.forEach(metricName => {
+        const series = metrics.get(metricName)
+        if (series) {
+          const sum = sumMetricValues(metrics, metricName)
+          console.log(`  ${metricName}:`, {
+            series: series.length,
+            sum,
+            sample: series.slice(0, 2).map(s => ({
+              value: s.value,
+              labels: s.labels
+            }))
+          })
+        } else {
+          console.warn(`  ⚠️ ${metricName}: NOT FOUND - La métrica no existe en el backend`)
+        }
+      })
+    }
+  }, [metrics])
 
   // Preparar datos para gráficos
   const httpRequestsData = getMetricValues(metrics, 'http_requests_total')
@@ -140,50 +176,12 @@ export function MetricsDashboard() {
     },
   ]
 
-  // Debug: Log available metrics y valores
-  useEffect(() => {
-    if (metrics.size > 0) {
-      const metricNames = Array.from(metrics.keys())
-      console.log('📊 Available metrics:', metricNames)
-      
-      // Log detallado de cada métrica que buscamos
-      const trackedMetrics = [
-        'http_requests_total',
-        'db_queries_total', 
-        'redis_operations_total',
-        'celery_tasks_total',
-        'trades_executed_total',
-        'active_arbitrage_opportunities'
-      ]
-      
-      trackedMetrics.forEach(metricName => {
-        const series = metrics.get(metricName)
-        if (series) {
-          const sum = sumMetricValues(metrics, metricName)
-          console.log(`  ${metricName}:`, {
-            series: series.length,
-            sum,
-            sample: series.slice(0, 2).map(s => ({
-              value: s.value,
-              labels: s.labels
-            }))
-          })
-        } else {
-          console.log(`  ${metricName}: NOT FOUND`)
-        }
-      })
-    }
-  }, [metrics])
-
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {stats.map((stat) => {
           const Icon = stat.icon
-          // Obtener el valor real de la métrica
-          let metricValue = stat.value
-          let metricName = ''
           
           // Mapear nombres de estadísticas a nombres de métricas
           const metricMap: Record<string, string> = {
@@ -195,29 +193,62 @@ export function MetricsDashboard() {
             'Active Arbitrage': 'active_arbitrage_opportunities',
           }
           
-          metricName = metricMap[stat.name] || ''
+          const metricName = metricMap[stat.name] || ''
           const metricSeries = metricName ? metrics.get(metricName) : null
+          const metricValue = parseFloat(stat.value.replace(/,/g, ''))
           
-          // Si la métrica existe pero el valor es 0, mostrar información de depuración
-          const hasMetricButZero = metricSeries && metricSeries.length > 0 && parseFloat(stat.value.replace(/,/g, '')) === 0
+          // Determinar el estado de la métrica
+          const metricNotFound = !metricSeries || metricSeries.length === 0
+          const metricExistsButZero = metricSeries && metricSeries.length > 0 && metricValue === 0
+          
+          // Mensajes informativos según el tipo de métrica
+          const metricInfo: Record<string, string> = {
+            'DB Queries': 'Se registra cuando se ejecutan queries en la base de datos',
+            'Celery Tasks': 'Se registra cuando se ejecutan tareas de Celery',
+            'Trades': 'Se registra cuando se ejecutan trades',
+            'Active Arbitrage': 'Muestra oportunidades activas (puede ser 0 si no hay)',
+          }
+          
+          const infoMessage = metricInfo[stat.name]
           
           return (
             <div
               key={stat.name}
-              className={`${stat.bgColor} rounded-lg p-4 border ${stat.borderColor} hover:opacity-80 transition-opacity relative`}
-              title={hasMetricButZero ? `Métrica encontrada con ${metricSeries?.length} series pero suma = 0` : undefined}
+              className={`${stat.bgColor} rounded-lg p-4 border ${stat.borderColor} hover:opacity-80 transition-opacity relative ${
+                metricNotFound ? 'opacity-60' : ''
+              }`}
+              title={
+                metricNotFound 
+                  ? `⚠️ Métrica no encontrada: ${metricName || 'N/A'}. ${infoMessage || 'Puede que no se haya registrado actividad aún.'}`
+                  : metricExistsButZero 
+                    ? `ℹ️ ${infoMessage || 'La métrica existe pero está en 0. Esto es normal si no ha habido actividad.'}`
+                    : undefined
+              }
             >
               <div className="flex items-center justify-between">
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs sm:text-sm text-gray-400">{stat.name}</p>
-                  <p className="text-xl sm:text-2xl font-bold text-white mt-1">{stat.value}</p>
-                  {hasMetricButZero && process.env.NODE_ENV === 'development' && (
-                    <p className="text-xs text-yellow-400 mt-1">
-                      {metricSeries?.length} series
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs sm:text-sm text-gray-400">{stat.name}</p>
+                    {metricNotFound && (
+                      <span className="text-xs text-yellow-500" title="Métrica no encontrada en el backend">
+                        ⚠️
+                      </span>
+                    )}
+                  </div>
+                  <p className={`text-xl sm:text-2xl font-bold mt-1 ${
+                    metricNotFound ? 'text-gray-500' : 'text-white'
+                  }`}>
+                    {stat.value}
+                  </p>
+                  {metricExistsButZero && (
+                    <p className="text-xs text-gray-500 mt-1 italic">
+                      Sin actividad
                     </p>
                   )}
                 </div>
-                <Icon className={`w-6 h-6 sm:w-8 sm:h-8 ${stat.color} flex-shrink-0`} />
+                <Icon className={`w-6 h-6 sm:w-8 sm:h-8 ${stat.color} flex-shrink-0 ${
+                  metricNotFound ? 'opacity-50' : ''
+                }`} />
               </div>
             </div>
           )
@@ -383,7 +414,7 @@ export function MetricsDashboard() {
 
       {/* Last Update */}
       <div className="text-center text-xs sm:text-sm text-gray-400">
-        Última actualización: <span className="text-gray-300">{lastUpdate.toLocaleTimeString()}</span>
+        Última actualización: <span className="text-gray-300">{formatColombiaTimeOnly(lastUpdate)}</span>
       </div>
     </div>
   )

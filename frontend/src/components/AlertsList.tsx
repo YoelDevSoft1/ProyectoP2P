@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Bell, TrendingUp, AlertTriangle, CheckCircle, XCircle } from 'lucide-react'
 import api from '@/lib/api'
+import { formatColombiaDateTime } from '@/lib/dateUtils'
 
 export function AlertsList() {
   const queryClient = useQueryClient()
@@ -99,7 +100,7 @@ export function AlertsList() {
                       {alert.message}
                     </p>
                     <p className="text-gray-500 text-xs mt-2">
-                      {new Date(alert.created_at).toLocaleString('es')}
+                      {formatColombiaDateTime(alert.created_at)}
                     </p>
                   </div>
                   <div className="flex-shrink-0">

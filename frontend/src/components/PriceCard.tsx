@@ -3,6 +3,7 @@
 import { TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { PriceData } from '@/types/prices'
+import { formatColombiaTimeOnly } from '@/lib/dateUtils'
 
 interface PriceCardProps {
   currency: 'COP' | 'VES'
@@ -143,7 +144,7 @@ export function PriceCard({ currency, data, trm }: PriceCardProps) {
       {/* Last Update */}
       <div className="mt-4 text-center">
         <p className="text-xs text-gray-500">
-          Actualizado: {new Date(data.timestamp).toLocaleTimeString('es')}
+          Actualizado: {formatColombiaTimeOnly(data.timestamp)}
         </p>
       </div>
     </div>
