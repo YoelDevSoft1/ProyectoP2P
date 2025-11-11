@@ -13,6 +13,8 @@ import {
   BarChart3,
   ArrowUpRight,
   ArrowDownRight,
+  AlertTriangle,
+  Info,
 } from 'lucide-react'
 import api from '@/lib/api'
 import { TradeStats } from '@/types/prices'
@@ -151,6 +153,12 @@ export function AdvancedMetrics() {
     },
   ]
 
+  // Verificar si hay trades simulados
+  const hasSimulatedTrades = stats.trade_breakdown && stats.trade_breakdown.simulated_trades_count > 0
+  const simulatedProfit = stats.trade_breakdown?.simulated_profit || 0
+  const realProfit = stats.trade_breakdown?.real_profit || 0
+  const isShowingSimulated = !stats.only_real_trades && hasSimulatedTrades
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -160,6 +168,53 @@ export function AdvancedMetrics() {
           <span>Actualizado cada 30 segundos</span>
         </div>
       </div>
+
+      {/* Advertencia de Trades Simulados */}
+      {isShowingSimulated && (
+        <div className="bg-yellow-500/20 border border-yellow-500/50 rounded-xl p-4 flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-yellow-400 mt-0.5 flex-shrink-0" />
+          <div className="flex-1">
+            <h3 className="text-yellow-400 font-semibold mb-1">
+              ⚠️ Advertencia: Operaciones Simuladas Incluidas
+            </h3>
+            <p className="text-sm text-yellow-200/80 mb-2">
+              Las métricas mostradas incluyen <strong>{stats.trade_breakdown?.simulated_trades_count || 0} operaciones simuladas</strong> 
+              {' '}que <strong>NO representan ganancias reales</strong>. Estas son simulaciones basadas en precios del mercado pero sin ejecución real de órdenes.
+            </p>
+            <div className="grid grid-cols-2 gap-4 mt-3 text-sm">
+              <div>
+                <p className="text-gray-400">Ganancia Real:</p>
+                <p className="text-green-400 font-bold">${realProfit.toFixed(2)}</p>
+                <p className="text-xs text-gray-500">({stats.trade_breakdown?.real_trades_count || 0} operaciones)</p>
+              </div>
+              <div>
+                <p className="text-gray-400">Ganancia Simulada:</p>
+                <p className="text-yellow-400 font-bold">${simulatedProfit.toFixed(2)}</p>
+                <p className="text-xs text-gray-500">({stats.trade_breakdown?.simulated_trades_count || 0} operaciones)</p>
+              </div>
+            </div>
+            <p className="text-xs text-yellow-200/60 mt-2">
+              💡 <strong>Nota:</strong> Las operaciones simuladas usan precios reales del mercado pero no ejecutan órdenes reales en Binance. 
+              No hay dinero real involucrado en estas operaciones.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Información si solo hay trades reales */}
+      {stats.only_real_trades && (
+        <div className="bg-green-500/20 border border-green-500/50 rounded-xl p-4 flex items-start gap-3">
+          <Info className="h-5 w-5 text-green-400 mt-0.5 flex-shrink-0" />
+          <div className="flex-1">
+            <h3 className="text-green-400 font-semibold mb-1">
+              ✅ Mostrando Solo Operaciones Reales
+            </h3>
+            <p className="text-sm text-green-200/80">
+              Las métricas mostradas corresponden únicamente a operaciones reales ejecutadas en Binance P2P.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {metrics.map((metric) => {

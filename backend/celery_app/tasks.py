@@ -662,19 +662,13 @@ def retrain_ml_model():
 
 @celery_app.task(
     name="celery_app.tasks.cleanup_old_data",
-    autoretry_for=(ConnectionError,),
-    retry_kwargs={'max_retries': 2, 'countdown': 600},  # 10 minutos de espera
-    acks_late=True,
-    time_limit=1800,  # 30 minutos límite
-    soft_time_limit=1500,  # 25 minutos soft limit
-)
-@celery_app.task(
-    name="celery_app.tasks.cleanup_old_data",
     bind=True,
-    max_retries=3,
-    default_retry_delay=300,  # 5 minutos
-    time_limit=1800,  # 30 minutos
-    soft_time_limit=1740  # 29 minutos
+    autoretry_for=(ConnectionError,),
+    max_retries=2,
+    retry_kwargs={'countdown': 60},  # 1 minuto de espera antes de reintentar
+    acks_late=True,
+    time_limit=600,  # 10 minutos (ajustado para ejecución cada 10 minutos)
+    soft_time_limit=540  # 9 minutos
 )
 def cleanup_old_data():
     """
@@ -682,9 +676,9 @@ def cleanup_old_data():
     - Mantener solo las 40 alertas más recientes (eliminar las demás)
     - Price history mayor a 90 días
     
-    Esta tarea se ejecuta cada hora para mantener la base de datos limpia.
+    Esta tarea se ejecuta cada 10 minutos para mantener la base de datos limpia.
 
-    Timeout extendido: 30 minutos (puede ser operación pesada).
+    Timeout: 10 minutos (ajustado para ejecución más frecuente).
     """
     db = get_db()
     max_alerts = 40

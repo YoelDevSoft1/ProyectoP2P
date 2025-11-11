@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate PNG Icons</title>
+</head>
+<body>
+    <h1>Generar Iconos PNG desde SVG</h1>
+    <p>Este script convierte los iconos SVG a PNG usando el canvas de HTML5.</p>
+    
+    <canvas id="canvas192" width="192" height="192" style="display:none;"></canvas>
+    <canvas id="canvas512" width="512" height="512" style="display:none;"></canvas>
+    
+    <script>
+        // Función para convertir SVG a PNG
+        function svgToPng(svgContent, width, height, filename) {
+            return new Promise((resolve, reject) => {
+                const canvas = document.getElementById(`canvas${width}`);
+                const ctx = canvas.getContext('2d');
+                const img = new Image();
+                
+                const svgBlob = new Blob([svgContent], {type: 'image/svg+xml;charset=utf-8'});
+                const url = URL.createObjectURL(svgBlob);
+                
+                img.onload = function() {
+                    ctx.clearRect(0, 0, width, height);
+                    ctx.drawImage(img, 0, 0, width, height);
+                    URL.revokeObjectURL(url);
+                    
+                    canvas.toBlob(function(blob) {
+                        const link = document.createElement('a');
+                        link.download = filename;
+                        link.href = URL.createObjectURL(blob);
+                        link.click();
+                        URL.revokeObjectURL(link.href);
+                        resolve();
+                    }, 'image/png');
+                };
+                
+                img.onerror = reject;
+                img.src = url;
+            });
+        }
+        
+        // Leer SVG y convertir
+        async function generateIcons() {
+            try {
+                // Leer icon-192.svg
+                const response192 = await fetch('icon-192.svg');
+                const svg192 = await response192.text();
+                await svgToPng(svg192, 192, 192, 'icon-192.png');
+                console.log('✓ icon-192.png generado');
+                
+                // Leer icon-512.svg
+                const response512 = await fetch('icon-512.svg');
+                const svg512 = await response512.text();
+                await svgToPng(svg512, 512, 512, 'icon-512.png');
+                console.log('✓ icon-512.png generado');
+                
+                alert('¡Iconos PNG generados exitosamente! Revisa tus descargas.');
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error generando iconos: ' + error.message);
+            }
+        }
+        
+        // Ejecutar al cargar
+        window.onload = function() {
+            document.body.innerHTML += '<button onclick="generateIcons()" style="padding: 10px 20px; font-size: 16px; background: #3b82f6; color: white; border: none; border-radius: 5px; cursor: pointer;">Generar Iconos PNG</button>';
+        };
+    </script>
+</body>
+</html>
+

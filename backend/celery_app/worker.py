@@ -199,10 +199,10 @@ celery_app.conf.beat_schedule = {
         "task": "celery_app.tasks.retrain_ml_model",
         "schedule": crontab(hour=0, minute=0),
     },
-    # Limpiar datos antiguos cada hora (mantener solo 40 alertas más recientes)
+    # Limpiar datos antiguos cada 10 minutos (mantener solo 40 alertas más recientes)
     "cleanup-old-data": {
         "task": "celery_app.tasks.cleanup_old_data",
-        "schedule": 3600.0,  # Cada hora (3600 segundos)
+        "schedule": 600.0,  # Cada 10 minutos (600 segundos)
     },
 }
 

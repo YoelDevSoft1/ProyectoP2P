@@ -6,6 +6,17 @@ tunnels:
     addr: backend:8000
     proto: http
     inspect: true
+  
+  # Túnel para PostgreSQL (para Outerbase u otras herramientas)
+  # ⚠️ NOTA: ngrok free tier requiere tarjeta de crédito para TCP endpoints
+  # Alternativas:
+  # 1. Agregar tarjeta a ngrok (no te cobran, solo verificación)
+  # 2. Usar SSH tunneling en Outerbase (más seguro)
+  # 3. Usar solo DBeaver (más simple, 100% local)
+  # postgres:
+  #   addr: postgres:5432
+  #   proto: tcp
+  #   inspect: false
 
 web_addr: 0.0.0.0:4040
 

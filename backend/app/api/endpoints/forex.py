@@ -374,11 +374,25 @@ def get_forex_analysis_service():
     """Dependency para obtener servicio de análisis Forex"""
     try:
         from app.services.forex_analysis_service import ForexAnalysisService
-        return ForexAnalysisService()
-    except ImportError:
+        service = ForexAnalysisService()
+        # Verificar si Alpha Vantage está habilitado
+        if not service.alpha_vantage.enabled:
+            raise HTTPException(
+                status_code=503,
+                detail="Forex analysis service requires Alpha Vantage API. Please configure ALPHA_VANTAGE_API_KEY in your .env file."
+            )
+        return service
+    except ImportError as e:
         raise HTTPException(
             status_code=503,
-            detail="Forex analysis service not available"
+            detail=f"Forex analysis service not available: {str(e)}"
+        )
+    except HTTPException:
+        raise  # Re-lanzar HTTPException
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error initializing Forex analysis service: {str(e)}"
         )
 
 
@@ -393,9 +407,19 @@ async def analyze_forex_pair(
     Retorna análisis estructurado con indicadores, señales y recomendaciones.
     
     Formato de respuesta según especificación del sistema experto.
+    
+    Args:
+        pair: Par de divisas (ej: "EUR/USD", "EURUSD", "EUR_USD")
+        timeframe: Timeframe para el análisis (daily, 60min, 15min)
     """
     try:
-        analysis = await service.analyze_pair(pair, timeframe)
+        # Normalizar el par (aceptar EUR/USD, EURUSD, EUR_USD)
+        normalized_pair = pair.replace("_", "/").replace("-", "/").upper()
+        if "/" not in normalized_pair and len(normalized_pair) == 6:
+            # Si es EURUSD, convertirlo a EUR/USD
+            normalized_pair = f"{normalized_pair[:3]}/{normalized_pair[3:]}"
+        
+        analysis = await service.analyze_pair(normalized_pair, timeframe)
         
         # Formatear respuesta según especificación
         return {

@@ -218,6 +218,16 @@ const createInitialPairs = (): SimulationPair[] =>
   })
 
 export function TradingControl() {
+  // Obtener configuración del backend
+  const { data: backendConfig } = useQuery({
+    queryKey: ['configuration'],
+    queryFn: () => api.getConfiguration(),
+    refetchInterval: 30000, // Refrescar cada 30 segundos
+  })
+
+  const [isEditing, setIsEditing] = useState(false)
+
+  // Inicializar config con valores por defecto
   const [config, setConfig] = useState<TradingConfig>({
     mode: 'hybrid',
     enabled: true,
@@ -229,7 +239,21 @@ export function TradingControl() {
     riskLimit: 5000,
   })
 
-  const [isEditing, setIsEditing] = useState(false)
+  // Sincronizar config cuando cambia la configuración del backend (solo si no está editando)
+  useEffect(() => {
+    if (backendConfig?.trading && !isEditing) {
+      const tradingConfig = backendConfig.trading
+      setConfig((prev) => ({
+        ...prev,
+        mode: tradingConfig.trading_mode,
+        maxDailyVolume: tradingConfig.max_trade_amount * 100, // Aproximación
+        maxPositionSize: tradingConfig.max_trade_amount,
+        profitMarginCOP: tradingConfig.profit_margin_cop,
+        profitMarginVES: tradingConfig.profit_margin_ves,
+        riskLimit: tradingConfig.max_trade_amount * 0.5, // Aproximación basada en stop_loss
+      }))
+    }
+  }, [backendConfig, isEditing])
   const [pairs, setPairs] = useState<SimulationPair[]>(createInitialPairs)
   const [selectedPairId, setSelectedPairId] = useState<string>(pairs[0]?.id ?? 'COP')
   const [orderForm, setOrderForm] = useState({ stopLoss: 40, takeProfit: 70, riskPercent: 1 })

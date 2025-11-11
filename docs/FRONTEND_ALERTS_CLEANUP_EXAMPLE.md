@@ -167,7 +167,7 @@ Si prefieres el botón debajo de las estadísticas, agregar después de la líne
   <div className="flex justify-between items-center bg-gray-800/50 rounded-lg p-4 border border-gray-700">
     <div>
       <p className="text-sm text-gray-400">
-        Limpieza automática cada hora (mantiene 40 alertas más recientes)
+        Limpieza automática cada 10 minutos (mantiene 40 alertas más recientes)
       </p>
       <p className="text-xs text-gray-500 mt-1">
         Puedes limpiar manualmente las alertas antiguas en cualquier momento

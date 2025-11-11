@@ -77,12 +77,36 @@ async def cancel_trade(request: CancelTradeRequest):
 
 @router.get("/orders")
 async def get_active_orders():
+    """
+    Obtener órdenes P2P activas.
+    
+    Nota: Este endpoint requiere que el servicio de automatización de navegador
+    esté configurado correctamente (BINANCE_EMAIL, BINANCE_PASSWORD).
+    Si no está configurado o hay un error, retorna una lista vacía.
+    """
     service = P2PTradingService()
     try:
         orders = await service.get_active_orders()
+        return {
+            "orders": orders,
+            "total": len(orders) if orders else 0
+        }
     except Exception as exc:  # pragma: no cover - integra con Binance
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        # Log del error pero no fallar completamente
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error obteniendo órdenes P2P: {exc}", exc_info=True)
+        
+        # Retornar lista vacía en lugar de error 500
+        # Esto permite que el frontend continúe funcionando
+        return {
+            "orders": [],
+            "total": 0,
+            "error": "No se pudieron obtener las órdenes. Verifica la configuración del servicio de automatización.",
+            "details": str(exc) if str(exc) else None
+        }
     finally:
-        await service.close()
-
-    return {"orders": orders}
+        try:
+            await service.close()
+        except Exception:
+            pass  # Ignorar errores al cerrar

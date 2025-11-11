@@ -164,14 +164,14 @@ const api = {
     return data
   },
 
-  getTradeStats: async (days = 7) => {
+  getTradeStats: async (days = 7, onlyRealTrades = false) => {
     try {
       return await requestWithCache(
-        `trade_stats_${days}`,
+        `trade_stats_${days}_${onlyRealTrades}`,
         async () => {
           const { data } = await requestWithRetry(() =>
             axiosInstance.get('/trades/stats/summary', {
-              params: { days },
+              params: { days, only_real_trades: onlyRealTrades },
             })
           )
           return data

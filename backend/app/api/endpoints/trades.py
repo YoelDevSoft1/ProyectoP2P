@@ -16,7 +16,7 @@ router = APIRouter()
 @router.get("/")
 async def get_trades(
     skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=50, ge=1, le=100),
+    limit: int = Query(default=50, ge=1, le=1000),
     status: Optional[TradeStatus] = None,
     fiat: Optional[str] = None,
     db: Session = Depends(get_db)
@@ -102,6 +102,7 @@ async def get_trade(trade_id: int, db: Session = Depends(get_db)):
 @router.get("/stats/summary")
 async def get_trade_stats(
     days: int = Query(default=7, ge=1, le=90),
+    only_real_trades: bool = Query(default=False, description="Solo mostrar trades reales (con binance_order_id)"),
     db: Session = Depends(get_db)
 ):
     """
@@ -109,16 +110,35 @@ async def get_trade_stats(
 
     Args:
         days: Número de días a analizar
+        only_real_trades: Si es True, solo incluye trades reales (con binance_order_id).
+                         Si es False, incluye todos los trades (reales y simulados).
     """
     since = datetime.utcnow() - timedelta(days=days)
 
-    trades = db.query(Trade).filter(Trade.created_at >= since).all()
+    # Base query
+    base_query = db.query(Trade).filter(Trade.created_at >= since)
+    
+    # Filtrar solo trades reales si se solicita
+    if only_real_trades:
+        base_query = base_query.filter(Trade.binance_order_id.isnot(None))
+    
+    trades = base_query.all()
 
     completed_trades = [t for t in trades if t.status == TradeStatus.COMPLETED]
     failed_trades = [t for t in trades if t.status == TradeStatus.FAILED]
 
+    # Separar trades reales y simulados para estadísticas
+    real_trades = [t for t in completed_trades if t.binance_order_id is not None]
+    simulated_trades = [t for t in completed_trades if t.binance_order_id is None]
+
     total_profit = sum(t.actual_profit or 0 for t in completed_trades)
     total_volume_usd = sum(t.crypto_amount for t in completed_trades)
+    
+    # Profit y volumen de trades reales vs simulados
+    real_profit = sum(t.actual_profit or 0 for t in real_trades)
+    simulated_profit = sum(t.actual_profit or 0 for t in simulated_trades)
+    real_volume = sum(t.crypto_amount for t in real_trades)
+    simulated_volume = sum(t.crypto_amount for t in simulated_trades)
 
     # Separar por moneda
     cop_trades = [t for t in completed_trades if t.fiat == "COP"]
@@ -136,6 +156,15 @@ async def get_trade_stats(
         "total_volume_usd": round(total_volume_usd, 2),
         "average_profit_per_trade": round(total_profit / len(completed_trades), 2) if completed_trades else 0,
         "success_rate": round((len(completed_trades) / len(trades)) * 100, 2) if trades else 0,
+        "only_real_trades": only_real_trades,
+        "trade_breakdown": {
+            "real_trades_count": len(real_trades),
+            "simulated_trades_count": len(simulated_trades),
+            "real_profit": round(real_profit, 2),
+            "simulated_profit": round(simulated_profit, 2),
+            "real_volume": round(real_volume, 2),
+            "simulated_volume": round(simulated_volume, 2),
+        },
         "by_currency": {
             "COP": {
                 "count": len(cop_trades),
