@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import Link from 'next/link'
 import { Bell, TrendingUp, AlertTriangle, CheckCircle, XCircle } from 'lucide-react'
 import api from '@/lib/api'
 import { formatColombiaDateTime } from '@/lib/dateUtils'
@@ -122,9 +123,12 @@ export function AlertsList() {
       </div>
 
       {alerts.length > 5 && (
-        <button className="mt-4 w-full flex items-center justify-center px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors text-sm">
+        <Link
+          href="/alerts"
+          className="mt-4 w-full flex items-center justify-center px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors text-sm"
+        >
           Ver todas las alertas
-        </button>
+        </Link>
       )}
     </div>
   )

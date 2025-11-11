@@ -518,14 +518,14 @@ export default function AlertsPage() {
                                       {alert.asset}/{alert.fiat}
                                     </span>
                                   )}
-                                  {alert.price && (
+                                  {alert.price !== undefined && alert.price !== null && (
                                     <span className="text-xs text-gray-500">
-                                      Precio: ${alert.price.toLocaleString()}
+                                      Precio: ${Number(alert.price).toLocaleString()}
                                     </span>
                                   )}
-                                  {alert.percentage !== undefined && (
+                                  {alert.percentage !== undefined && alert.percentage !== null && (
                                     <span className="text-xs text-gray-500">
-                                      {alert.percentage > 0 ? '+' : ''}{alert.percentage.toFixed(2)}%
+                                      {alert.percentage > 0 ? '+' : ''}{Number(alert.percentage).toFixed(2)}%
                                     </span>
                                   )}
                                   <span className="text-xs text-gray-500">
