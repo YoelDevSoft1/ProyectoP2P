@@ -10,7 +10,8 @@
       "Bash(ngrok http:*)",
       "Bash(python -m pytest:*)",
       "Bash(python:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(docker-compose ps:*)"
     ],
     "deny": [],
     "ask": []
